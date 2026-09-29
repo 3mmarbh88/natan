@@ -1,0 +1,1424 @@
+
+import React, {
+  FormEvent,
+  useEffect,
+  useState,
+} from 'react';
+
+import {
+  Lock,
+  User,
+  Phone,
+  Mail,
+  KeyRound,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  LogIn,
+  UserPlus,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+  Smartphone,
+  X,
+} from 'lucide-react';
+
+import {
+  loginNatanUser,
+  registerNatanUser,
+  activateNatanUser,
+  forgotNatanPassword,
+  getNatanDeviceId,
+  NatanActivationRequiredError,
+} from '../utils/natanApi';
+
+// ============================================================
+// TYPES
+// ============================================================
+
+interface AppAuthSession {
+  token: string;
+  userId: string;
+  username: string;
+  fullName?: string;
+  phone?: string;
+  isAuthenticated: boolean;
+  expiresAt: number;
+  planName: string;
+  maxDevices: number;
+  createdAt?: string;
+}
+
+interface AuthModalProps {
+  currentSession?: AppAuthSession | null;
+  onAuthenticate: (session: AppAuthSession) => void;
+  onOpenWhatsApp?: () => void;
+  onClose?: () => void;
+  initialTab?: AuthTab;
+}
+
+type AuthTab =
+  | 'login'
+  | 'register'
+  | 'activate'
+  | 'forgot';
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+const formatExpiry = (
+  timestamp?: number
+) => {
+  if (!timestamp) {
+    return 'غير محدد';
+  }
+
+  const date = new Date(timestamp);
+
+  if (Number.isNaN(date.getTime())) {
+    return 'غير محدد';
+  }
+
+  return date.toLocaleDateString(
+    'ar-BH',
+    {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }
+  );
+};
+
+const normalizeText = (
+  value: unknown
+) =>
+  String(value ?? '').trim();
+
+const normalizeCode = (
+  value: unknown
+) =>
+  String(value ?? '')
+    .trim()
+    .toUpperCase();
+
+// ============================================================
+// SESSION CONVERTER
+// ============================================================
+
+const convertSession = (
+  session: any
+): AppAuthSession => {
+  return {
+    token:
+      session?.token || '',
+
+    userId:
+      session?.userId ||
+      session?.user?.id ||
+      '',
+
+    username:
+      session?.username ||
+      session?.user?.username ||
+      '',
+
+    fullName:
+      session?.fullName ||
+      session?.full_name ||
+      session?.user?.fullName ||
+      session?.user?.full_name ||
+      '',
+
+    phone:
+      session?.phone ||
+      session?.user?.phone ||
+      session?.username ||
+      '',
+
+    isAuthenticated:
+      Boolean(
+        session?.isAuthenticated ??
+          session?.token
+      ),
+
+    expiresAt:
+      typeof session?.expiresAt ===
+      'number'
+        ? session.expiresAt
+        : session?.expiresAt
+          ? new Date(
+              session.expiresAt
+            ).getTime()
+          : Date.now() +
+            30 *
+              24 *
+              60 *
+              60 *
+              1000,
+
+    planName:
+      session?.planName ||
+      session?.plan?.name ||
+      'NATAN',
+
+    maxDevices:
+      Number(
+        session?.maxDevices ??
+          session?.max_devices ??
+          session?.user?.maxDevices ??
+          session?.user?.max_devices ??
+          1
+      ) || 1,
+
+    createdAt:
+      session?.createdAt ||
+      session?.created_at ||
+      session?.user?.createdAt ||
+      session?.user?.created_at,
+  };
+};
+
+// ============================================================
+// FIELD COMPONENT
+//
+// مهم:
+// هذا المكون خارج AuthModal.
+// هذا يمنع إعادة إنشاء input أثناء الكتابة
+// ويحافظ على المؤشر والتركيز.
+// ============================================================
+
+interface FieldProps {
+  icon: React.ReactNode;
+  label: string;
+  name: string;
+  value: string;
+  onChange: (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => void;
+  type?: string;
+  placeholder: string;
+  autoComplete?: string;
+  passwordToggle?: boolean;
+  showPassword?: boolean;
+  setShowPassword?: (
+    value: boolean
+  ) => void;
+  dir?: 'rtl' | 'ltr';
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+}
+
+const Field = React.memo(
+  function Field({
+    icon,
+    label,
+    name,
+    value,
+    onChange,
+    type = 'text',
+    placeholder,
+    autoComplete,
+    passwordToggle,
+    showPassword,
+    setShowPassword,
+    dir = 'rtl',
+    inputMode,
+  }: FieldProps) {
+    const actualType =
+      passwordToggle && showPassword
+        ? 'text'
+        : type;
+
+    return (
+      <div className="space-y-2">
+        <label
+          htmlFor={name}
+          className="block text-sm font-semibold text-slate-200"
+        >
+          {label}
+        </label>
+
+        <div className="relative">
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex w-12 items-center justify-center text-slate-400">
+            {icon}
+          </div>
+
+          <input
+            id={name}
+            name={name}
+            type={actualType}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            autoComplete={autoComplete}
+            inputMode={inputMode}
+            dir={dir}
+            className="w-full rounded-2xl border border-slate-700 bg-slate-900/80 py-3.5 pr-12 pl-12 text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
+          />
+
+          {passwordToggle &&
+            setShowPassword && (
+              <button
+                type="button"
+                onMouseDown={(event) =>
+                  event.preventDefault()
+                }
+                onClick={() =>
+                  setShowPassword(
+                    !showPassword
+                  )
+                }
+                className="absolute inset-y-0 left-0 flex w-12 items-center justify-center text-slate-400 transition hover:text-white"
+                tabIndex={-1}
+                aria-label={
+                  showPassword
+                    ? 'إخفاء كلمة المرور'
+                    : 'إظهار كلمة المرور'
+                }
+              >
+                {showPassword ? (
+                  <EyeOff size={19} />
+                ) : (
+                  <Eye size={19} />
+                )}
+              </button>
+            )}
+        </div>
+      </div>
+    );
+  }
+);
+
+// ============================================================
+// CODE FIELD
+// ============================================================
+
+interface CodeFieldProps {
+  id: string;
+  name: string;
+  value: string;
+  onChange: (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => void;
+}
+
+const CodeField = React.memo(
+  function CodeField({
+    id,
+    name,
+    value,
+    onChange,
+  }: CodeFieldProps) {
+    return (
+      <div className="space-y-2">
+        <label
+          htmlFor={id}
+          className="block text-sm font-semibold text-slate-200"
+        >
+          كود التفعيل
+        </label>
+
+        <div className="relative">
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex w-12 items-center justify-center text-slate-400">
+            <KeyRound size={19} />
+          </div>
+
+          <input
+            id={id}
+            name={name}
+            type="text"
+            value={value}
+            onChange={onChange}
+            placeholder="NATAN-XXXX-XXXX"
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            dir="ltr"
+            className="w-full rounded-2xl border border-slate-700 bg-slate-900/80 py-3.5 pr-12 pl-4 text-center font-bold tracking-widest text-white outline-none transition placeholder:text-slate-500 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
+          />
+        </div>
+      </div>
+    );
+  }
+);
+
+// ============================================================
+// AUTH MODAL
+// ============================================================
+
+export default function AuthModal({
+  currentSession,
+  onAuthenticate,
+  onClose,
+  initialTab = 'login',
+}: AuthModalProps) {
+  const [
+    activeTab,
+    setActiveTab,
+  ] = useState<AuthTab>(
+    initialTab
+  );
+
+  // ==========================================================
+  // LOGIN
+  // ==========================================================
+
+  const [
+    loginUsername,
+    setLoginUsername,
+  ] = useState('');
+
+  const [
+    loginPassword,
+    setLoginPassword,
+  ] = useState('');
+
+  // ==========================================================
+  // REGISTER
+  // ==========================================================
+
+  const [
+    regFullName,
+    setRegFullName,
+  ] = useState('');
+
+  const [
+    regEmail,
+    setRegEmail,
+  ] = useState('');
+
+  const [
+    regPhone,
+    setRegPhone,
+  ] = useState('');
+
+  const [
+    regPassword,
+    setRegPassword,
+  ] = useState('');
+
+  const [
+    regConfirmPassword,
+    setRegConfirmPassword,
+  ] = useState('');
+
+  // ==========================================================
+  // ACTIVATE
+  // ==========================================================
+
+  const [
+    activationUsername,
+    setActivationUsername,
+  ] = useState('');
+
+  const [
+    activationCode,
+    setActivationCode,
+  ] = useState('');
+
+  // ==========================================================
+  // FORGOT
+  // ==========================================================
+
+  const [
+    forgotUsername,
+    setForgotUsername,
+  ] = useState('');
+
+  // ==========================================================
+  // UI
+  // ==========================================================
+
+  const [
+    showLoginPassword,
+    setShowLoginPassword,
+  ] = useState(false);
+
+  const [
+    showRegisterPassword,
+    setShowRegisterPassword,
+  ] = useState(false);
+
+  const [
+    showConfirmPassword,
+    setShowConfirmPassword,
+  ] = useState(false);
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
+
+  const [
+    errorMsg,
+    setErrorMsg,
+  ] = useState('');
+
+  const [
+    successMsg,
+    setSuccessMsg,
+  ] = useState('');
+
+  // ==========================================================
+  // ACTIVATION CONTEXT
+  // ==========================================================
+
+  const [
+    activationHint,
+    setActivationHint,
+  ] = useState('');
+
+  // ==========================================================
+  // INITIAL TAB
+  // ==========================================================
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  // ==========================================================
+  // MESSAGES
+  // ==========================================================
+
+  const clearMessages = () => {
+    setErrorMsg('');
+    setSuccessMsg('');
+  };
+
+  // ==========================================================
+  // TAB
+  // ==========================================================
+
+  const changeTab = (
+    tab: AuthTab
+  ) => {
+    if (loading) {
+      return;
+    }
+
+    clearMessages();
+    setActivationHint('');
+    setActiveTab(tab);
+  };
+
+  // ==========================================================
+  // AUTHENTICATE
+  // ==========================================================
+
+  const authenticate = (
+    rawSession: any
+  ) => {
+    const session =
+      convertSession(rawSession);
+
+    if (!session.token) {
+      throw new Error(
+        'لم يتم استلام رمز الدخول من السيرفر.'
+      );
+    }
+
+    if (!session.userId) {
+      throw new Error(
+        'لم يتم استلام رقم المستخدم من السيرفر.'
+      );
+    }
+
+    onAuthenticate(session);
+  };
+
+  // ==========================================================
+  // LOGIN
+  // ==========================================================
+
+  const handleLogin = async (
+    event: FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+
+    clearMessages();
+    setActivationHint('');
+
+    const form =
+      event.currentTarget;
+
+    const formData =
+      new FormData(form);
+
+    const username =
+      normalizeText(
+        formData.get(
+          'loginUsername'
+        )
+      );
+
+    const password =
+      String(
+        formData.get(
+          'loginPassword'
+        ) ?? ''
+      );
+
+    if (!username) {
+      setErrorMsg(
+        'يرجى إدخال اسم المستخدم أو رقم الهاتف.'
+      );
+      return;
+    }
+
+    if (!password) {
+      setErrorMsg(
+        'يرجى إدخال كلمة المرور.'
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const deviceId =
+        await getNatanDeviceId();
+
+      const session =
+        await loginNatanUser({
+          username,
+          password,
+          deviceId,
+          deviceName:
+            'NATAN Android',
+          platform: 'android',
+          appVersion: '4.0.0',
+        });
+
+      authenticate(session);
+    } catch (error: any) {
+      if (
+        error instanceof
+        NatanActivationRequiredError
+      ) {
+        setActivationUsername(
+          error.username ||
+            username ||
+            ''
+        );
+
+        setActivationHint(
+          error.email
+            ? `الحساب ${error.email} يحتاج إلى التفعيل قبل الدخول.`
+            : 'هذا الحساب يحتاج إلى التفعيل قبل الدخول.'
+        );
+
+        setActiveTab('activate');
+
+        setErrorMsg(
+          'الحساب غير مفعّل. أدخل كود التفعيل.'
+        );
+
+        return;
+      }
+
+      setErrorMsg(
+        error?.message ||
+          'تعذر تسجيل الدخول. تحقق من البيانات وحاول مرة أخرى.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================================================
+  // REGISTER
+  // ==========================================================
+
+  const handleRegister = async (
+    event: FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+
+    clearMessages();
+
+    const form =
+      event.currentTarget;
+
+    const formData =
+      new FormData(form);
+
+    const fullName =
+      normalizeText(
+        formData.get(
+          'regFullName'
+        )
+      );
+
+    const email =
+      normalizeText(
+        formData.get(
+          'regEmail'
+        )
+      );
+
+    const phone =
+      normalizeText(
+        formData.get(
+          'regPhone'
+        )
+      );
+
+    const password =
+      String(
+        formData.get(
+          'regPassword'
+        ) ?? ''
+      );
+
+    const confirmPassword =
+      String(
+        formData.get(
+          'regConfirmPassword'
+        ) ?? ''
+      );
+
+    if (!fullName) {
+      setErrorMsg(
+        'يرجى إدخال الاسم الكامل.'
+      );
+      return;
+    }
+
+    if (!email) {
+      setErrorMsg(
+        'يرجى إدخال البريد الإلكتروني.'
+      );
+      return;
+    }
+
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        email
+      )
+    ) {
+      setErrorMsg(
+        'يرجى إدخال بريد إلكتروني صحيح.'
+      );
+      return;
+    }
+
+    if (!phone) {
+      setErrorMsg(
+        'يرجى إدخال رقم الهاتف.'
+      );
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMsg(
+        'كلمة المرور يجب أن تكون 6 أحرف أو أرقام على الأقل.'
+      );
+      return;
+    }
+
+    if (
+      password !==
+      confirmPassword
+    ) {
+      setErrorMsg(
+        'كلمة المرور وتأكيد كلمة المرور غير متطابقين.'
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const deviceId =
+        await getNatanDeviceId();
+
+      const result =
+        await registerNatanUser({
+          fullName,
+          email,
+          phone,
+          password,
+          confirmPassword,
+          deviceId,
+          deviceName:
+            'NATAN Android',
+          platform: 'android',
+          appVersion:
+            '4.0.0',
+        });
+
+      setActivationUsername(
+        phone
+      );
+
+      setActivationCode('');
+
+      setSuccessMsg(
+        result?.message ||
+          'تم إنشاء الحساب بنجاح. الحساب الآن بانتظار التفعيل.'
+      );
+
+      setActivationHint(
+        'تم حفظ حسابك في السيرفر. سجّل الدخول باستخدام رقم الهاتف وكلمة المرور، وسيطلب منك NATAN كود التفعيل تلقائيًا.'
+      );
+
+      setLoginUsername(
+        phone
+      );
+
+      setLoginPassword('');
+
+      setActiveTab('login');
+    } catch (error: any) {
+      setErrorMsg(
+        error?.message ||
+          'تعذر إنشاء الحساب. تحقق من البيانات وحاول مرة أخرى.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================================================
+  // ACTIVATE
+  // ==========================================================
+
+  const handleActivate = async (
+    event: FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+
+    clearMessages();
+
+    const form =
+      event.currentTarget;
+
+    const formData =
+      new FormData(form);
+
+    const username =
+      normalizeText(
+        formData.get(
+          'activationUsername'
+        )
+      );
+
+    const code =
+      normalizeCode(
+        formData.get(
+          'activationCode'
+        )
+      );
+
+    if (!username) {
+      setErrorMsg(
+        'يرجى إدخال اسم المستخدم أو رقم الهاتف.'
+      );
+      return;
+    }
+
+    if (!code) {
+      setErrorMsg(
+        'يرجى إدخال كود التفعيل.'
+      );
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const deviceId =
+        await getNatanDeviceId();
+
+      const session =
+        await activateNatanUser({
+          username,
+          activationCode: code,
+          deviceId,
+        });
+
+      authenticate(session);
+
+      setSuccessMsg(
+        'تم تفعيل الحساب بنجاح.'
+      );
+    } catch (error: any) {
+      setErrorMsg(
+        error?.message ||
+          'تعذر تفعيل الحساب. تأكد من صحة الكود.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================================================
+  // FORGOT PASSWORD
+  // ==========================================================
+
+  const handleForgotPassword =
+    async (
+      event: FormEvent<HTMLFormElement>
+    ) => {
+      event.preventDefault();
+
+      clearMessages();
+
+      const form =
+        event.currentTarget;
+
+      const formData =
+        new FormData(form);
+
+      const username =
+        normalizeText(
+          formData.get(
+            'forgotUsername'
+          )
+        );
+
+      if (!username) {
+        setErrorMsg(
+          'يرجى إدخال اسم المستخدم أو رقم الهاتف.'
+        );
+        return;
+      }
+
+      try {
+        setLoading(true);
+
+        await forgotNatanPassword(
+          username
+        );
+
+        setSuccessMsg(
+          'تم إرسال طلب استعادة كلمة المرور. اتبع التعليمات التي تظهر لك.'
+        );
+      } catch (error: any) {
+        setErrorMsg(
+          error?.message ||
+            'تعذر إرسال طلب استعادة كلمة المرور.'
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+  // ==========================================================
+  // HEADER
+  // ==========================================================
+
+  const Header =
+    React.useCallback(
+      () => (
+        <div className="mb-6 text-center">
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl border border-cyan-400/20 bg-cyan-400/10 shadow-lg shadow-cyan-500/10">
+            <ShieldCheck
+              size={42}
+              className="text-cyan-300"
+            />
+          </div>
+
+          <h1 className="text-2xl font-black tracking-tight text-white">
+            NATAN SMART
+          </h1>
+
+          <p className="mt-1 text-sm text-slate-400">
+            نظام حجز شفتات نينجا الذكي
+          </p>
+
+          {currentSession?.isAuthenticated && (
+            <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-300">
+              <CheckCircle2
+                size={14}
+              />
+
+              الحساب مفعل حتى{' '}
+
+              {formatExpiry(
+                currentSession.expiresAt
+              )}
+            </div>
+          )}
+        </div>
+      ),
+      [
+        currentSession?.isAuthenticated,
+        currentSession?.expiresAt,
+      ]
+    );
+
+  // ==========================================================
+  // SUBMIT BUTTON
+  // ==========================================================
+
+  const SubmitButton = ({
+    icon,
+    children,
+  }: {
+    icon: React.ReactNode;
+    children: React.ReactNode;
+  }) => (
+    <button
+      type="submit"
+      disabled={loading}
+      className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-5 py-4 font-black text-slate-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-300 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {loading ? (
+        <>
+          <RefreshCw
+            size={19}
+            className="animate-spin"
+          />
+          جاري التنفيذ...
+        </>
+      ) : (
+        <>
+          {icon}
+          {children}
+        </>
+      )}
+    </button>
+  );
+
+  // ==========================================================
+  // LOGIN FORM
+  // ==========================================================
+
+  const LoginForm = (
+    <form
+      onSubmit={handleLogin}
+      className="space-y-4"
+    >
+      {activationHint && (
+        <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm leading-6 text-amber-200">
+          {activationHint}
+        </div>
+      )}
+
+      <Field
+        icon={<User size={19} />}
+        label="اسم المستخدم أو رقم الهاتف"
+        name="loginUsername"
+        value={loginUsername}
+        onChange={(event) =>
+          setLoginUsername(
+            event.currentTarget.value
+          )
+        }
+        placeholder="مثال: 973xxxxxxxx"
+        autoComplete="username"
+        inputMode="text"
+      />
+
+      <Field
+        icon={<Lock size={19} />}
+        label="كلمة المرور"
+        name="loginPassword"
+        value={loginPassword}
+        onChange={(event) =>
+          setLoginPassword(
+            event.currentTarget.value
+          )
+        }
+        placeholder="أدخل كلمة المرور"
+        type="password"
+        autoComplete="current-password"
+        passwordToggle
+        showPassword={
+          showLoginPassword
+        }
+        setShowPassword={
+          setShowLoginPassword
+        }
+      />
+
+      <SubmitButton
+        icon={<LogIn size={19} />}
+      >
+        تسجيل الدخول
+      </SubmitButton>
+
+      <div className="flex items-center justify-between pt-2 text-sm">
+        <button
+          type="button"
+          onClick={() =>
+            changeTab('forgot')
+          }
+          className="font-semibold text-cyan-300 hover:text-cyan-200"
+        >
+          نسيت كلمة المرور؟
+        </button>
+
+        <button
+          type="button"
+          onClick={() =>
+            changeTab('register')
+          }
+          className="font-semibold text-slate-300 hover:text-white"
+        >
+          إنشاء حساب
+        </button>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => {
+          setActivationUsername(
+            loginUsername
+          );
+          changeTab('activate');
+        }}
+        className="w-full rounded-2xl border border-slate-700 py-3 text-sm font-semibold text-slate-300 transition hover:border-cyan-400/40 hover:text-white"
+      >
+        لدي حساب وأريد تفعيل الكود
+      </button>
+    </form>
+  );
+
+  // ==========================================================
+  // REGISTER FORM
+  // ==========================================================
+
+  const RegisterForm = (
+    <form
+      onSubmit={handleRegister}
+      className="space-y-4"
+    >
+      <Field
+        icon={<User size={19} />}
+        label="الاسم الكامل"
+        name="regFullName"
+        value={regFullName}
+        onChange={(event) =>
+          setRegFullName(
+            event.currentTarget.value
+          )
+        }
+        placeholder="اكتب اسمك الكامل"
+        autoComplete="name"
+      />
+
+      <Field
+        icon={<Mail size={19} />}
+        label="البريد الإلكتروني"
+        name="regEmail"
+        value={regEmail}
+        onChange={(event) =>
+          setRegEmail(
+            event.currentTarget.value
+          )
+        }
+        placeholder="example@email.com"
+        autoComplete="email"
+        dir="ltr"
+        inputMode="email"
+      />
+
+      <Field
+        icon={<Phone size={19} />}
+        label="رقم الهاتف"
+        name="regPhone"
+        value={regPhone}
+        onChange={(event) =>
+          setRegPhone(
+            event.currentTarget.value
+          )
+        }
+        placeholder="مثال: 973xxxxxxxx"
+        autoComplete="tel"
+        dir="ltr"
+        inputMode="tel"
+      />
+
+      <Field
+        icon={<Lock size={19} />}
+        label="كلمة المرور"
+        name="regPassword"
+        value={regPassword}
+        onChange={(event) =>
+          setRegPassword(
+            event.currentTarget.value
+          )
+        }
+        placeholder="6 أحرف أو أرقام على الأقل"
+        type="password"
+        autoComplete="new-password"
+        passwordToggle
+        showPassword={
+          showRegisterPassword
+        }
+        setShowPassword={
+          setShowRegisterPassword
+        }
+      />
+
+      <Field
+        icon={<Lock size={19} />}
+        label="تأكيد كلمة المرور"
+        name="regConfirmPassword"
+        value={regConfirmPassword}
+        onChange={(event) =>
+          setRegConfirmPassword(
+            event.currentTarget.value
+          )
+        }
+        placeholder="أعد كتابة كلمة المرور"
+        type="password"
+        autoComplete="new-password"
+        passwordToggle
+        showPassword={
+          showConfirmPassword
+        }
+        setShowPassword={
+          setShowConfirmPassword
+        }
+      />
+
+      <div className="rounded-2xl border border-cyan-400/10 bg-cyan-400/5 p-4 text-xs leading-6 text-slate-400">
+        سيتم إنشاء الحساب وحفظه في السيرفر أولاً.
+        بعد ذلك يحتاج الحساب إلى كود تفعيل قبل
+        الدخول إلى NATAN.
+      </div>
+
+      <SubmitButton
+        icon={<UserPlus size={19} />}
+      >
+        إنشاء الحساب
+      </SubmitButton>
+
+      <button
+        type="button"
+        onClick={() =>
+          changeTab('login')
+        }
+        className="w-full pt-2 text-sm font-semibold text-cyan-300 hover:text-cyan-200"
+      >
+        لدي حساب بالفعل — تسجيل الدخول
+      </button>
+    </form>
+  );
+
+  // ==========================================================
+  // ACTIVATE FORM
+  // ==========================================================
+
+  const ActivateForm = (
+    <form
+      onSubmit={handleActivate}
+      className="space-y-4"
+    >
+      <div className="rounded-2xl border border-cyan-400/10 bg-cyan-400/5 p-4 text-sm leading-6 text-slate-300">
+        أدخل اسم المستخدم أو رقم الهاتف وكود
+        التفعيل. يتم التحقق من الكود مباشرة عبر
+        NATAN Server.
+      </div>
+
+      <Field
+        icon={<User size={19} />}
+        label="اسم المستخدم أو رقم الهاتف"
+        name="activationUsername"
+        value={activationUsername}
+        onChange={(event) =>
+          setActivationUsername(
+            event.currentTarget.value
+          )
+        }
+        placeholder="مثال: 973xxxxxxxx"
+        autoComplete="username"
+        dir="ltr"
+      />
+
+      <CodeField
+        id="activationCode"
+        name="activationCode"
+        value={activationCode}
+        onChange={(event) =>
+          setActivationCode(
+            event.currentTarget.value.toUpperCase()
+          )
+        }
+      />
+
+      <SubmitButton
+        icon={<KeyRound size={19} />}
+      >
+        تفعيل الحساب
+      </SubmitButton>
+
+      <button
+        type="button"
+        onClick={() =>
+          changeTab('login')
+        }
+        className="w-full pt-2 text-sm font-semibold text-cyan-300 hover:text-cyan-200"
+      >
+        العودة لتسجيل الدخول
+      </button>
+    </form>
+  );
+
+  // ==========================================================
+  // FORGOT FORM
+  // ==========================================================
+
+  const ForgotForm = (
+    <form
+      onSubmit={handleForgotPassword}
+      className="space-y-4"
+    >
+      <div className="rounded-2xl border border-amber-400/10 bg-amber-400/5 p-4 text-sm leading-6 text-slate-300">
+        أدخل اسم المستخدم أو رقم الهاتف المرتبط
+        بحسابك لبدء عملية استعادة كلمة المرور.
+      </div>
+
+      <Field
+        icon={<User size={19} />}
+        label="اسم المستخدم أو رقم الهاتف"
+        name="forgotUsername"
+        value={forgotUsername}
+        onChange={(event) =>
+          setForgotUsername(
+            event.currentTarget.value
+          )
+        }
+        placeholder="مثال: 973xxxxxxxx"
+        autoComplete="username"
+      />
+
+      <SubmitButton
+        icon={<RefreshCw size={19} />}
+      >
+        استعادة كلمة المرور
+      </SubmitButton>
+
+      <button
+        type="button"
+        onClick={() =>
+          changeTab('login')
+        }
+        className="w-full pt-2 text-sm font-semibold text-cyan-300 hover:text-cyan-200"
+      >
+        العودة لتسجيل الدخول
+      </button>
+    </form>
+  );
+
+  // ==========================================================
+  // RENDER
+  // ==========================================================
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex min-h-screen items-center justify-center overflow-y-auto bg-slate-950/95 px-3 py-6 backdrop-blur-md sm:px-5"
+      dir="rtl"
+    >
+      <div className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-slate-700/80 bg-slate-950 shadow-2xl shadow-black/50">
+        <div className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-cyan-500/10 blur-3xl" />
+
+        <div className="pointer-events-none absolute -bottom-24 -left-24 h-56 w-56 rounded-full bg-blue-500/10 blur-3xl" />
+
+        {onClose &&
+          currentSession?.isAuthenticated && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute left-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-slate-700 bg-slate-900/80 text-slate-400 transition hover:text-white"
+              aria-label="إغلاق"
+            >
+              <X size={18} />
+            </button>
+          )}
+
+        <div className="relative p-5 sm:p-7">
+          <Header />
+
+          {/* Messages */}
+          <div>
+            {errorMsg && (
+              <div className="mb-4 flex items-start gap-3 rounded-2xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">
+                <AlertCircle
+                  size={19}
+                  className="mt-0.5 shrink-0"
+                />
+
+                <span>
+                  {errorMsg}
+                </span>
+              </div>
+            )}
+
+            {successMsg && (
+              <div className="mb-4 flex items-start gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-200">
+                <CheckCircle2
+                  size={19}
+                  className="mt-0.5 shrink-0"
+                />
+
+                <span>
+                  {successMsg}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Login / Register tabs */}
+          {(activeTab === 'login' ||
+            activeTab === 'register') && (
+            <div className="mb-6 grid grid-cols-2 rounded-2xl border border-slate-800 bg-slate-900/70 p-1">
+              <button
+                type="button"
+                onClick={() =>
+                  changeTab('login')
+                }
+                className={`rounded-xl px-4 py-3 text-sm font-bold transition ${
+                  activeTab === 'login'
+                    ? 'bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/10'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                تسجيل الدخول
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  changeTab('register')
+                }
+                className={`rounded-xl px-4 py-3 text-sm font-bold transition ${
+                  activeTab === 'register'
+                    ? 'bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/10'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                حساب جديد
+              </button>
+            </div>
+          )}
+
+          {/* Content */}
+          {activeTab === 'login' &&
+            LoginForm}
+
+          {activeTab === 'register' &&
+            RegisterForm}
+
+          {activeTab === 'activate' &&
+            ActivateForm}
+
+          {activeTab === 'forgot' &&
+            ForgotForm}
+
+          {/* Footer */}
+          <div className="mt-6 flex items-center justify-center gap-2 border-t border-slate-800 pt-5 text-xs text-slate-500">
+            <Smartphone size={14} />
+
+            <span>
+              حماية الحساب • ربط الجهاز • تحقق من السيرفر
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

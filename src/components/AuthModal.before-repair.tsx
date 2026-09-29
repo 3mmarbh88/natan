@@ -1,0 +1,1646 @@
+import {
+  BiometricAuth,
+  BiometryType,
+  BiometryErrorType,
+} from '@aparajita/capacitor-biometric-auth';
+
+import React, {
+  FormEvent,
+  useEffect,
+  useState,
+} from 'react';
+
+import {
+  Lock,
+  User,
+  Phone,
+  Mail,
+  KeyRound,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  LogIn,
+  UserPlus,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+  Smartphone,
+  Fingerprint,
+  X,
+} from 'lucide-react';
+
+import {
+  loginNatanUser,
+  registerNatanUser,
+  activateNatanUser,
+  forgotNatanPassword,
+  getNatanDeviceId,
+  getNatanMe,
+  NatanActivationRequiredError,
+} from '../utils/natanApi';
+
+interface AppAuthSession {
+  token: string;
+  userId: string;
+  username: string;
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  isAuthenticated: boolean;
+  expiresAt: number;
+  planName: string;
+  maxDevices: number;
+  createdAt?: string;
+  activatedAt?: string;
+  licenseKey?: string;
+  deviceId?: string;
+  boundHardware?: string;
+}
+
+type AuthTab = 'login' | 'register' | 'activate' | 'forgot';
+
+const BIOMETRIC_ENABLED_KEY = 'natan_biometric_enabled';
+const AUTH_SESSION_KEY = 'natan_auth_session';
+
+interface AuthModalProps {
+  currentSession: AppAuthSession | null;
+  onAuthenticate: (session: AppAuthSession) => void;
+  onOpenWhatsApp?: () => void;
+  onClose?: () => void;
+  initialTab?: AuthTab;
+}
+
+function formatExpiry(expiresAt?: number) {
+  if (!expiresAt) return 'غير محدد';
+
+  const date = new Date(expiresAt);
+
+  if (Number.isNaN(date.getTime())) {
+    return 'غير محدد';
+  }
+
+  return date.toLocaleDateString('ar-BH', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+function normalizeText(value: unknown) {
+  return String(value ?? '').trim();
+}
+
+function normalizeCode(value: unknown) {
+  return String(value ?? '')
+    .trim()
+    .replace(/\s+/g, '')
+    .toUpperCase();
+}
+
+function convertSession(
+  session: any,
+  fallbackToken?: string,
+): AppAuthSession {
+  const user = session?.user ?? session ?? {};
+  const token = session?.token ?? fallbackToken ?? '';
+
+  let expiresAt = Number(
+    user?.expiresAt ??
+      user?.activation_expires_at ??
+      user?.expires_at ??
+      session?.expiresAt ??
+      0,
+  );
+
+  if (
+    expiresAt > 0 &&
+    expiresAt < 100000000000
+  ) {
+    expiresAt *= 1000;
+  }
+
+  if (!expiresAt) {
+    expiresAt =
+      Date.now() +
+      30 * 24 * 60 * 60 * 1000;
+  }
+
+  return {
+    token,
+    userId: String(
+      user?.id ??
+        session?.userId ??
+        '',
+    ),
+    username: String(
+      user?.username ??
+        session?.username ??
+        '',
+    ),
+    fullName:
+      user?.fullName ??
+      user?.full_name ??
+      session?.fullName ??
+      '',
+    email:
+      user?.email ??
+      session?.email ??
+      '',
+    phone:
+      user?.phone ??
+      session?.phone ??
+      '',
+    isAuthenticated:
+      user?.isAuthenticated ??
+      session?.isAuthenticated ??
+      true,
+    expiresAt,
+    planName:
+      user?.planName ??
+      user?.plan_name ??
+      session?.planName ??
+      'NATAN',
+    maxDevices: Number(
+      user?.maxDevices ??
+        user?.max_devices ??
+        session?.maxDevices ??
+        1,
+    ),
+    createdAt:
+      user?.createdAt ??
+      user?.created_at ??
+      session?.createdAt,
+    activatedAt:
+      user?.activatedAt ??
+      session?.activatedAt,
+    licenseKey:
+      user?.licenseKey ??
+      session?.licenseKey,
+    deviceId:
+      user?.deviceId ??
+      session?.deviceId,
+    boundHardware:
+      user?.boundHardware ??
+      session?.boundHardware,
+  };
+}
+
+interface FieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  placeholder?: string;
+  icon: React.ReactNode;
+  disabled?: boolean;
+  autoComplete?: string;
+  required?: boolean;
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  type = 'text',
+  placeholder,
+  icon,
+  disabled = false,
+  autoComplete,
+  required = true,
+}: FieldProps) {
+  const [showPassword, setShowPassword] =
+    useState(false);
+
+  const isPassword =
+    type === 'password';
+
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-sm font-medium text-slate-200">
+        {label}
+      </label>
+
+      <div className="relative">
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+          {icon}
+        </div>
+
+        <input
+          type={
+            isPassword && showPassword
+              ? 'text'
+              : type
+          }
+          value={value}
+          onChange={(e) =>
+            onChange(e.target.value)
+          }
+          placeholder={placeholder}
+          disabled={disabled}
+          autoComplete={autoComplete}
+          required={required}
+          dir="rtl"
+          className="w-full rounded-xl border border-slate-700 bg-slate-900/80 py-3 pr-10 pl-11 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+        />
+
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() =>
+              setShowPassword(
+                (value) => !value,
+              )
+            }
+            className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 transition hover:text-white"
+            tabIndex={-1}
+          >
+            {showPassword ? (
+              <EyeOff size={18} />
+            ) : (
+              <Eye size={18} />
+            )}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface CodeFieldProps {
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}
+
+function CodeField({
+  value,
+  onChange,
+  disabled = false,
+}: CodeFieldProps) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-sm font-medium text-slate-200">
+        رمز التفعيل
+      </label>
+
+      <div className="relative">
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+          <KeyRound size={18} />
+        </div>
+
+        <input
+          value={value}
+          onChange={(e) =>
+            onChange(
+              normalizeCode(
+                e.target.value,
+              ),
+            )
+          }
+          placeholder="أدخل رمز التفعيل"
+          disabled={disabled}
+          required
+          dir="ltr"
+          inputMode="text"
+          autoComplete="one-time-code"
+          className="w-full rounded-xl border border-slate-700 bg-slate-900/80 py-3 pr-10 pl-3 text-center text-base font-bold tracking-[0.25em] text-white outline-none transition placeholder:text-slate-500 placeholder:tracking-normal focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+        />
+      </div>
+    </div>
+  );
+}
+
+export default function AuthModal({
+  currentSession,
+  onAuthenticate,
+  onOpenWhatsApp,
+  onClose,
+  initialTab = 'login',
+}: AuthModalProps) {
+  const [activeTab, setActiveTab] =
+    useState<AuthTab>(initialTab);
+
+  const [loginUsername, setLoginUsername] =
+    useState('');
+  const [loginPassword, setLoginPassword] =
+    useState('');
+
+  const [fullName, setFullName] =
+    useState('');
+  const [email, setEmail] =
+    useState('');
+  const [phone, setPhone] =
+    useState('');
+  const [registerPassword, setRegisterPassword] =
+    useState('');
+  const [confirmPassword, setConfirmPassword] =
+    useState('');
+
+  const [activationUsername, setActivationUsername] =
+    useState('');
+  const [activationCode, setActivationCode] =
+    useState('');
+
+  const [forgotUsername, setForgotUsername] =
+    useState('');
+
+  const [loading, setLoading] =
+    useState(false);
+  const [biometricLoading, setBiometricLoading] =
+    useState(false);
+
+  const [biometricAvailable, setBiometricAvailable] =
+    useState(false);
+  const [biometricEnabled, setBiometricEnabled] =
+    useState(false);
+  const [biometricLabel, setBiometricLabel] =
+    useState('البصمة');
+
+  const [errorMsg, setErrorMsg] =
+    useState('');
+  const [successMsg, setSuccessMsg] =
+    useState('');
+  const [activationHint, setActivationHint] =
+    useState('');
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkBiometric = async () => {
+      try {
+        const result =
+          await BiometricAuth.checkBiometry();
+
+        if (!mounted) return;
+
+        const available =
+          !!result?.isAvailable;
+
+        setBiometricAvailable(
+          available,
+        );
+
+        const enabled =
+          localStorage.getItem(
+            BIOMETRIC_ENABLED_KEY,
+          ) === 'true';
+
+        setBiometricEnabled(
+          available && enabled,
+        );
+
+        switch (
+          result?.biometryType
+        ) {
+          case BiometryType.fingerprintAuthentication:
+            setBiometricLabel(
+              'بصمة الإصبع',
+            );
+            break;
+
+          case BiometryType.faceAuthentication:
+          case BiometryType.faceId:
+            setBiometricLabel(
+              'التعرف على الوجه',
+            );
+            break;
+
+          case BiometryType.irisAuthentication:
+            setBiometricLabel(
+              'قزحية العين',
+            );
+            break;
+
+          case BiometryType.touchId:
+            setBiometricLabel(
+              'Touch ID',
+            );
+            break;
+
+          default:
+            setBiometricLabel(
+              'البصمة',
+            );
+            break;
+        }
+      } catch {
+        if (!mounted) return;
+
+        setBiometricAvailable(
+          false,
+        );
+        setBiometricEnabled(
+          false,
+        );
+      }
+    };
+
+    void checkBiometric();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const clearMessages = () => {
+    setErrorMsg('');
+    setSuccessMsg('');
+  };
+
+  const saveSession = (
+    session: AppAuthSession,
+  ) => {
+    localStorage.setItem(
+      AUTH_SESSION_KEY,
+      JSON.stringify(session),
+    );
+
+    onAuthenticate(session);
+  };
+
+  const enableBiometricForDevice =
+    async () => {
+      try {
+        const result =
+          await BiometricAuth.checkBiometry();
+
+        if (!result?.isAvailable) {
+          setBiometricAvailable(
+            false,
+          );
+          return false;
+        }
+
+        setBiometricAvailable(
+          true,
+        );
+
+        localStorage.setItem(
+          BIOMETRIC_ENABLED_KEY,
+          'true',
+        );
+
+        setBiometricEnabled(
+          true,
+        );
+
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+  const handleBiometricLogin =
+    async () => {
+      clearMessages();
+      setBiometricLoading(true);
+
+      try {
+        const result =
+          await BiometricAuth.checkBiometry();
+
+        if (!result?.isAvailable) {
+          setBiometricAvailable(
+            false,
+          );
+          setBiometricEnabled(
+            false,
+          );
+
+          throw new Error(
+            'المصادقة الحيوية غير متاحة على هذا الجهاز.',
+          );
+        }
+
+        const enabled =
+          localStorage.getItem(
+            BIOMETRIC_ENABLED_KEY,
+          ) === 'true';
+
+        if (!enabled) {
+          throw new Error(
+            'لم يتم تفعيل تسجيل الدخول بالبصمة بعد.',
+          );
+        }
+
+        await BiometricAuth.authenticate({
+          reason:
+            'تحقق من هويتك للدخول إلى NATAN',
+          cancelTitle: 'إلغاء',
+          allowDeviceCredential: false,
+          androidTitle:
+            'تسجيل الدخول إلى NATAN',
+          androidSubtitle:
+            'استخدم البصمة أو المصادقة الحيوية',
+          androidConfirmationRequired:
+            true,
+        });
+
+        const saved =
+          localStorage.getItem(
+            AUTH_SESSION_KEY,
+          );
+
+        if (!saved) {
+          localStorage.removeItem(
+            BIOMETRIC_ENABLED_KEY,
+          );
+          setBiometricEnabled(
+            false,
+          );
+
+          throw new Error(
+            'لا توجد جلسة محفوظة. يرجى تسجيل الدخول بكلمة المرور أولاً.',
+          );
+        }
+
+        let savedSession: AppAuthSession;
+
+        try {
+          savedSession =
+            JSON.parse(saved);
+        } catch {
+          localStorage.removeItem(
+            AUTH_SESSION_KEY,
+          );
+
+          throw new Error(
+            'بيانات جلسة NATAN غير صالحة. يرجى تسجيل الدخول مرة أخرى.',
+          );
+        }
+
+        if (
+          !savedSession.token ||
+          !savedSession.userId ||
+          !savedSession.isAuthenticated
+        ) {
+          localStorage.removeItem(
+            AUTH_SESSION_KEY,
+          );
+
+          throw new Error(
+            'جلسة NATAN غير صالحة. يرجى تسجيل الدخول مرة أخرى.',
+          );
+        }
+
+        if (
+          savedSession.expiresAt &&
+          savedSession.expiresAt <=
+            Date.now()
+        ) {
+          localStorage.removeItem(
+            AUTH_SESSION_KEY,
+          );
+
+          throw new Error(
+            'انتهت صلاحية جلسة NATAN. يرجى تسجيل الدخول بكلمة المرور.',
+          );
+        }
+
+        /*
+         * مهم:
+         * لا نعتمد على الجلسة المحلية وحدها.
+         * بعد نجاح البصمة نتحقق من التوكن مع NATAN Server.
+         */
+        const me =
+          await getNatanMe(
+            savedSession.token,
+          );
+
+        if (
+          !me?.success ||
+          !me?.user
+        ) {
+          throw new Error(
+            'تعذر التحقق من الجلسة مع NATAN Server. يرجى تسجيل الدخول مرة أخرى.',
+          );
+        }
+
+        const refreshed =
+          convertSession(
+            {
+              token:
+                savedSession.token,
+              user: me.user,
+            },
+            savedSession.token,
+          );
+
+        if (
+          !refreshed.userId ||
+          !refreshed.token
+        ) {
+          throw new Error(
+            'بيانات الحساب غير مكتملة. يرجى تسجيل الدخول مرة أخرى.',
+          );
+        }
+
+        saveSession(
+          refreshed,
+        );
+      } catch (error: any) {
+        const errorCode =
+          error?.code;
+
+        if (
+          errorCode ===
+          BiometryErrorType.userCancel
+        ) {
+          setErrorMsg(
+            'تم إلغاء التحقق بالبصمة.',
+          );
+        } else if (
+          errorCode ===
+          BiometryErrorType.userFallback
+        ) {
+          setErrorMsg(
+            'تم اختيار طريقة تسجيل دخول أخرى.',
+          );
+        } else if (
+          errorCode ===
+          BiometryErrorType.biometryNotAvailable
+        ) {
+          setErrorMsg(
+            'المصادقة الحيوية غير متاحة على هذا الجهاز.',
+          );
+        } else if (
+          errorCode ===
+          BiometryErrorType.biometryNotEnrolled
+        ) {
+          setErrorMsg(
+            'لا توجد بصمة أو مصادقة حيوية مسجلة في الهاتف.',
+          );
+        } else if (
+          error instanceof
+          NatanActivationRequiredError
+        ) {
+          localStorage.removeItem(
+            AUTH_SESSION_KEY,
+          );
+          localStorage.removeItem(
+            BIOMETRIC_ENABLED_KEY,
+          );
+
+          setBiometricEnabled(
+            false,
+          );
+
+          setActivationUsername(
+            error.username ||
+              error.email ||
+              error.phone ||
+              '',
+          );
+
+          setActivationHint(
+            'الحساب يحتاج إلى التفعيل قبل الدخول.',
+          );
+
+          setActiveTab(
+            'activate',
+          );
+        } else {
+          setErrorMsg(
+            error?.message ||
+              'فشل تسجيل الدخول بالبصمة. يرجى استخدام كلمة المرور.',
+          );
+        }
+      } finally {
+        setBiometricLoading(false);
+      }
+    };
+
+  const handleLogin = async (
+    event: FormEvent,
+  ) => {
+    event.preventDefault();
+    clearMessages();
+
+    const username =
+      normalizeText(
+        loginUsername,
+      );
+    const password =
+      loginPassword;
+
+    if (!username) {
+      setErrorMsg(
+        'أدخل اسم المستخدم أو البريد الإلكتروني أو رقم الهاتف.',
+      );
+      return;
+    }
+
+    if (!password) {
+      setErrorMsg(
+        'أدخل كلمة المرور.',
+      );
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const deviceId =
+        await getNatanDeviceId();
+
+      const result =
+        await loginNatanUser({
+          username,
+          password,
+          deviceId,
+          deviceName:
+            'NATAN Android',
+          platform:
+            'android',
+          appVersion:
+            '1.0.0',
+        });
+
+      const converted =
+        convertSession(
+          result,
+        );
+
+      if (
+        !converted.token ||
+        !converted.userId
+      ) {
+        throw new Error(
+          'تم تسجيل الدخول ولكن بيانات الجلسة غير مكتملة.',
+        );
+      }
+
+      saveSession(
+        converted,
+      );
+
+      await enableBiometricForDevice();
+
+      setSuccessMsg(
+        'تم تسجيل الدخول بنجاح.',
+      );
+    } catch (error: any) {
+      if (
+        error instanceof
+        NatanActivationRequiredError
+      ) {
+        setActivationUsername(
+          error.username ||
+            error.email ||
+            error.phone ||
+            username,
+        );
+
+        setActivationCode('');
+        setActivationHint(
+          'هذا الحساب غير مفعّل. أدخل رمز التفعيل الذي أعطاك إياه مسؤول NATAN.',
+        );
+
+        setActiveTab(
+          'activate',
+        );
+
+        setSuccessMsg(
+          'تم العثور على الحساب. يحتاج إلى التفعيل قبل الدخول.',
+        );
+      } else {
+        setErrorMsg(
+          error?.message ||
+            'اسم المستخدم أو كلمة المرور غير صحيحة.',
+        );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async (
+    event: FormEvent,
+  ) => {
+    event.preventDefault();
+    clearMessages();
+
+    const cleanFullName =
+      normalizeText(fullName);
+    const cleanEmail =
+      normalizeText(email).toLowerCase();
+    const cleanPhone =
+      normalizeText(phone);
+
+    if (!cleanFullName) {
+      setErrorMsg(
+        'أدخل الاسم الكامل.',
+      );
+      return;
+    }
+
+    if (!cleanEmail) {
+      setErrorMsg(
+        'أدخل البريد الإلكتروني.',
+      );
+      return;
+    }
+
+    if (!cleanEmail.includes('@')) {
+      setErrorMsg(
+        'أدخل بريدًا إلكترونيًا صحيحًا.',
+      );
+      return;
+    }
+
+    if (!cleanPhone) {
+      setErrorMsg(
+        'أدخل رقم الهاتف.',
+      );
+      return;
+    }
+
+    if (
+      registerPassword.length <
+      6
+    ) {
+      setErrorMsg(
+        'كلمة المرور يجب أن تحتوي على 6 أحرف على الأقل.',
+      );
+      return;
+    }
+
+    if (
+      registerPassword !==
+      confirmPassword
+    ) {
+      setErrorMsg(
+        'كلمتا المرور غير متطابقتين.',
+      );
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const deviceId =
+        await getNatanDeviceId();
+
+      await registerNatanUser({
+        fullName:
+          cleanFullName,
+        email:
+          cleanEmail,
+        phone:
+          cleanPhone,
+        password:
+          registerPassword,
+        confirmPassword,
+        deviceId,
+        deviceName:
+          'NATAN Android',
+        platform:
+          'android',
+        appVersion:
+          '1.0.0',
+      });
+
+      setActivationUsername(
+        cleanPhone,
+      );
+      setActivationCode('');
+
+      setLoginUsername(
+        cleanPhone,
+      );
+      setLoginPassword('');
+
+      setRegisterPassword('');
+      setConfirmPassword('');
+
+      setSuccessMsg(
+        'تم إنشاء الحساب بنجاح. سجّل الدخول الآن، وسيظهر لك طلب رمز التفعيل تلقائيًا.',
+      );
+
+      setActivationHint(
+        'الحساب تم إنشاؤه ولكنه يحتاج إلى رمز تفعيل من مسؤول NATAN.',
+      );
+
+      setActiveTab(
+        'login',
+      );
+    } catch (error: any) {
+      setErrorMsg(
+        error?.message ||
+          'تعذر إنشاء الحساب.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleActivate = async (
+    event: FormEvent,
+  ) => {
+    event.preventDefault();
+    clearMessages();
+
+    const identifier =
+      normalizeText(
+        activationUsername,
+      );
+    const code =
+      normalizeCode(
+        activationCode,
+      );
+
+    if (!identifier) {
+      setErrorMsg(
+        'أدخل اسم المستخدم أو البريد الإلكتروني أو رقم الهاتف.',
+      );
+      return;
+    }
+
+    if (!code) {
+      setErrorMsg(
+        'أدخل رمز التفعيل.',
+      );
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const deviceId =
+        await getNatanDeviceId();
+
+      const result =
+        await activateNatanUser({
+          username:
+            identifier,
+          activationCode:
+            code,
+          deviceId,
+        });
+
+      const converted =
+        convertSession(
+          result,
+        );
+
+      if (
+        !converted.token ||
+        !converted.userId
+      ) {
+        throw new Error(
+          'تم التفعيل ولكن بيانات الجلسة غير مكتملة.',
+        );
+      }
+
+      saveSession(
+        converted,
+      );
+
+      await enableBiometricForDevice();
+
+      setSuccessMsg(
+        'تم تفعيل الحساب وتسجيل الدخول بنجاح.',
+      );
+    } catch (error: any) {
+      setErrorMsg(
+        error?.message ||
+          'رمز التفعيل غير صحيح أو منتهي الصلاحية.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (
+    event: FormEvent,
+  ) => {
+    event.preventDefault();
+    clearMessages();
+
+    const identifier =
+      normalizeText(
+        forgotUsername,
+      );
+
+    if (!identifier) {
+      setErrorMsg(
+        'أدخل اسم المستخدم أو البريد الإلكتروني.',
+      );
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await forgotNatanPassword(
+        identifier,
+      );
+
+      setSuccessMsg(
+        'تم إرسال طلب استعادة كلمة المرور إذا كان الحساب موجودًا.',
+      );
+    } catch (error: any) {
+      setErrorMsg(
+        error?.message ||
+          'تعذر إرسال طلب استعادة كلمة المرور.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const goToTab = (
+    tab: AuthTab,
+  ) => {
+    clearMessages();
+    setActiveTab(tab);
+  };
+
+  const isLicensed =
+    !!(
+      currentSession &&
+      currentSession.isAuthenticated &&
+      currentSession.expiresAt >
+        Date.now()
+    );
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-950/90 p-4 backdrop-blur-sm">
+      <div className="relative my-4 w-full max-w-md overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 shadow-2xl">
+        {onClose && isLicensed && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute left-4 top-4 z-10 rounded-full p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+            aria-label="إغلاق"
+          >
+            <X size={20} />
+          </button>
+        )}
+
+        <div className="border-b border-slate-800 bg-gradient-to-br from-blue-950/70 via-slate-950 to-slate-950 px-6 pb-5 pt-7 text-center">
+          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-400/30 bg-blue-500/10 text-blue-400 shadow-lg shadow-blue-500/10">
+            <ShieldCheck
+              size={34}
+            />
+          </div>
+
+          <h1 className="text-2xl font-black tracking-wide text-white">
+            NATAN SMART
+          </h1>
+
+          <p className="mt-1 text-sm text-slate-400">
+            نظام إدارة آمن وذكي
+          </p>
+        </div>
+
+        <div className="p-6">
+          {(errorMsg ||
+            successMsg) && (
+            <div
+              className={`mb-5 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
+                errorMsg
+                  ? 'border-red-500/30 bg-red-500/10 text-red-200'
+                  : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+              }`}
+            >
+              {errorMsg ? (
+                <AlertCircle
+                  size={19}
+                  className="mt-0.5 shrink-0"
+                />
+              ) : (
+                <CheckCircle2
+                  size={19}
+                  className="mt-0.5 shrink-0"
+                />
+              )}
+
+              <span>
+                {errorMsg ||
+                  successMsg}
+              </span>
+            </div>
+          )}
+
+          {activeTab ===
+            'login' && (
+            <>
+              <div className="mb-5 grid grid-cols-2 gap-2 rounded-xl bg-slate-900 p-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    goToTab('login')
+                  }
+                  className="rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-bold text-white"
+                >
+                  تسجيل الدخول
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    goToTab(
+                      'register',
+                    )
+                  }
+                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 transition hover:text-white"
+                >
+                  إنشاء حساب
+                </button>
+              </div>
+
+              <form
+                onSubmit={
+                  handleLogin
+                }
+                className="space-y-4"
+              >
+                <Field
+                  label="اسم المستخدم / البريد / الهاتف"
+                  value={
+                    loginUsername
+                  }
+                  onChange={
+                    setLoginUsername
+                  }
+                  placeholder="أدخل بيانات الحساب"
+                  icon={
+                    <User
+                      size={18}
+                    />
+                  }
+                  autoComplete="username"
+                  disabled={loading}
+                />
+
+                <Field
+                  label="كلمة المرور"
+                  value={
+                    loginPassword
+                  }
+                  onChange={
+                    setLoginPassword
+                  }
+                  type="password"
+                  placeholder="أدخل كلمة المرور"
+                  icon={
+                    <Lock
+                      size={18}
+                    />
+                  }
+                  autoComplete="current-password"
+                  disabled={loading}
+                />
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading ? (
+                    <RefreshCw
+                      size={19}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <LogIn
+                      size={19}
+                    />
+                  )}
+
+                  {loading
+                    ? 'جارٍ تسجيل الدخول...'
+                    : 'تسجيل الدخول'}
+                </button>
+
+                {biometricAvailable &&
+                  biometricEnabled && (
+                    <button
+                      type="button"
+                      onClick={
+                        handleBiometricLogin
+                      }
+                      disabled={
+                        biometricLoading ||
+                        loading
+                      }
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3.5 text-sm font-bold text-white transition hover:border-blue-500 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {biometricLoading ? (
+                        <RefreshCw
+                          size={19}
+                          className="animate-spin"
+                        />
+                      ) : (
+                        <Fingerprint
+                          size={21}
+                        />
+                      )}
+
+                      {biometricLoading
+                        ? 'جارٍ التحقق...'
+                        : `الدخول باستخدام ${biometricLabel}`}
+                    </button>
+                  )}
+
+                <div className="flex items-center justify-between pt-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      goToTab(
+                        'forgot',
+                      )
+                    }
+                    className="text-slate-400 transition hover:text-blue-400"
+                  >
+                    نسيت كلمة المرور؟
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      goToTab(
+                        'activate',
+                      )
+                    }
+                    className="text-slate-400 transition hover:text-emerald-400"
+                  >
+                    لدي رمز تفعيل
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
+
+          {activeTab ===
+            'register' && (
+            <>
+              <div className="mb-5 grid grid-cols-2 gap-2 rounded-xl bg-slate-900 p-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    goToTab('login')
+                  }
+                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 transition hover:text-white"
+                >
+                  تسجيل الدخول
+                </button>
+
+                <button
+                  type="button"
+                  className="rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-bold text-white"
+                >
+                  إنشاء حساب
+                </button>
+              </div>
+
+              <form
+                onSubmit={
+                  handleRegister
+                }
+                className="space-y-4"
+              >
+                <Field
+                  label="الاسم الكامل"
+                  value={fullName}
+                  onChange={
+                    setFullName
+                  }
+                  placeholder="مثال: أحمد محمد"
+                  icon={
+                    <User
+                      size={18}
+                    />
+                  }
+                  autoComplete="name"
+                  disabled={loading}
+                />
+
+                <Field
+                  label="البريد الإلكتروني"
+                  value={email}
+                  onChange={
+                    setEmail
+                  }
+                  type="email"
+                  placeholder="name@example.com"
+                  icon={
+                    <Mail
+                      size={18}
+                    />
+                  }
+                  autoComplete="email"
+                  disabled={loading}
+                />
+
+                <Field
+                  label="رقم الهاتف"
+                  value={phone}
+                  onChange={
+                    setPhone
+                  }
+                  type="tel"
+                  placeholder="رقم الهاتف"
+                  icon={
+                    <Phone
+                      size={18}
+                    />
+                  }
+                  autoComplete="tel"
+                  disabled={loading}
+                />
+
+                <Field
+                  label="كلمة المرور"
+                  value={
+                    registerPassword
+                  }
+                  onChange={
+                    setRegisterPassword
+                  }
+                  type="password"
+                  placeholder="6 أحرف على الأقل"
+                  icon={
+                    <Lock
+                      size={18}
+                    />
+                  }
+                  autoComplete="new-password"
+                  disabled={loading}
+                />
+
+                <Field
+                  label="تأكيد كلمة المرور"
+                  value={
+                    confirmPassword
+                  }
+                  onChange={
+                    setConfirmPassword
+                  }
+                  type="password"
+                  placeholder="أعد كتابة كلمة المرور"
+                  icon={
+                    <Lock
+                      size={18}
+                    />
+                  }
+                  autoComplete="new-password"
+                  disabled={loading}
+                />
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading ? (
+                    <RefreshCw
+                      size={19}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <UserPlus
+                      size={19}
+                    />
+                  )}
+
+                  {loading
+                    ? 'جارٍ إنشاء الحساب...'
+                    : 'إنشاء الحساب'}
+                </button>
+
+                <p className="text-center text-xs leading-5 text-slate-500">
+                  بعد إنشاء الحساب، سيكون
+                  الحساب بحاجة إلى رمز تفعيل
+                  للدخول إلى NATAN.
+                </p>
+              </form>
+            </>
+          )}
+
+          {activeTab ===
+            'activate' && (
+            <>
+              <div className="mb-5 text-center">
+                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
+                  <KeyRound
+                    size={28}
+                  />
+                </div>
+
+                <h2 className="text-lg font-bold text-white">
+                  تفعيل الحساب
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-400">
+                  أدخل بيانات الحساب ورمز التفعيل
+                </p>
+              </div>
+
+              {activationHint && (
+                <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm leading-6 text-amber-200">
+                  {activationHint}
+                </div>
+              )}
+
+              <form
+                onSubmit={
+                  handleActivate
+                }
+                className="space-y-4"
+              >
+                <Field
+                  label="اسم المستخدم / البريد / الهاتف"
+                  value={
+                    activationUsername
+                  }
+                  onChange={
+                    setActivationUsername
+                  }
+                  placeholder="بيانات الحساب"
+                  icon={
+                    <User
+                      size={18}
+                    />
+                  }
+                  autoComplete="username"
+                  disabled={loading}
+                />
+
+                <CodeField
+                  value={
+                    activationCode
+                  }
+                  onChange={
+                    setActivationCode
+                  }
+                  disabled={loading}
+                />
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading ? (
+                    <RefreshCw
+                      size={19}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <ShieldCheck
+                      size={19}
+                    />
+                  )}
+
+                  {loading
+                    ? 'جارٍ التفعيل...'
+                    : 'تفعيل الحساب'}
+                </button>
+
+                <div className="flex items-center justify-between pt-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      goToTab(
+                        'login',
+                      )
+                    }
+                    className="text-slate-400 transition hover:text-blue-400"
+                  >
+                    العودة لتسجيل الدخول
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      goToTab(
+                        'register',
+                      )
+                    }
+                    className="text-slate-400 transition hover:text-blue-400"
+                  >
+                    إنشاء حساب
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
+
+          {activeTab ===
+            'forgot' && (
+            <>
+              <div className="mb-5 text-center">
+                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-400">
+                  <Lock
+                    size={28}
+                  />
+                </div>
+
+                <h2 className="text-lg font-bold text-white">
+                  استعادة كلمة المرور
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-400">
+                  أدخل اسم المستخدم أو البريد الإلكتروني
+                </p>
+              </div>
+
+              <form
+                onSubmit={
+                  handleForgotPassword
+                }
+                className="space-y-4"
+              >
+                <Field
+                  label="اسم المستخدم / البريد الإلكتروني"
+                  value={
+                    forgotUsername
+                  }
+                  onChange={
+                    setForgotUsername
+                  }
+                  placeholder="بيانات الحساب"
+                  icon={
+                    <Mail
+                      size={18}
+                    />
+                  }
+                  autoComplete="username"
+                  disabled={loading}
+                />
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading ? (
+                    <RefreshCw
+                      size={19}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <KeyRound
+                      size={19}
+                    />
+                  )}
+
+                  {loading
+                    ? 'جارٍ الإرسال...'
+                    : 'إرسال طلب الاستعادة'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    goToTab(
+                      'login',
+                    )
+                  }
+                  className="w-full text-center text-xs text-slate-400 transition hover:text-blue-400"
+                >
+                  العودة لتسجيل الدخول
+                </button>
+              </form>
+            </>
+          )}
+
+          <div className="mt-6 border-t border-slate-800 pt-4">
+            <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
+              <Smartphone
+                size={15}
+              />
+              <span>
+                NATAN Server Authentication
+              </span>
+            </div>
+
+            {currentSession &&
+              isLicensed && (
+                <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center text-xs text-emerald-300">
+                  الحساب الحالي صالح حتى{' '}
+                  {formatExpiry(
+                    currentSession.expiresAt,
+                  )}
+                </div>
+              )}
+
+            {onOpenWhatsApp && (
+              <button
+                type="button"
+                onClick={
+                  onOpenWhatsApp
+                }
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-800 py-2.5 text-xs text-slate-500 transition hover:border-slate-700 hover:text-slate-300"
+              >
+                فتح إعدادات WhatsApp
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

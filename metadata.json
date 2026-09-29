@@ -1,0 +1,8 @@
+{
+  "name": "NATAN Pro - نظام حجز شفتات نينجا الذكي",
+  "description": "منظومة متطورة وفائقة السرعة لأتمتة حجز دوامات وشفتات نينجا (Ninja KSA) بأعلى كفاءة وسرعة استجابة بالمللي ثانية ومحاكاة واختبار الأكواد وتصدير كود Flutter وAndroid الأصلي.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

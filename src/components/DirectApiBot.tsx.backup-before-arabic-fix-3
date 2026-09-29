@@ -1,0 +1,1410 @@
+﻿import React, { useEffect, useRef, useState } from "react";
+import {
+  Terminal,
+  Server,
+  Zap,
+  CheckCircle2,
+  AlertTriangle,
+  Play,
+  Square,
+  RefreshCw,
+  Globe,
+  ShieldCheck,
+  Smartphone,
+  Sliders,
+} from "lucide-react";
+
+import { BookingSettings, Shift } from "../types";
+import { soundFX } from "../utils/audio";
+
+import {
+  NINJA_API_BASE,
+  NinjaApiError,
+  getNinjaShifts,
+  getNinjaActiveShifts,
+  getNinjaShiftSummaries,
+} from "../api/ninjaApi";
+
+import {
+  mapNinjaShiftsToNatanShifts,
+} from "../utils/ninjaShiftMapper";
+
+interface DirectApiBotProps {
+  settings: BookingSettings;
+
+  onUpdateSettings: (
+    newSettings: Partial<BookingSettings>,
+  ) => void;
+
+  onBookShift: (shift: Shift) => void;
+
+  onTriggerInstantDrop: () => void;
+
+  onAddLog: (
+    type:
+      | "info"
+      | "success"
+      | "warning"
+      | "error"
+      | "speed",
+    message: string,
+    details?: string,
+    durationMs?: number,
+  ) => void;
+
+  /*
+   * Sends real Ninja shifts to App.tsx.
+   *
+   * The shifts are read-only at this stage.
+   * No booking request is performed here.
+   */
+  onShiftsUpdated: (shifts: Shift[]) => void;
+}
+
+interface NetworkLog {
+  id: string;
+  time: string;
+  method: "GET" | "POST";
+  endpoint: string;
+  status: number;
+  latencyMs: number;
+  responseSnippet: string;
+  type:
+    | "poll"
+    | "book"
+    | "auth"
+    | "error";
+}
+
+export const DirectApiBot: React.FC<
+  DirectApiBotProps
+> = ({
+  settings,
+  onUpdateSettings,
+  onAddLog,
+  onShiftsUpdated,
+}) => {
+  const [isBotRunning, setIsBotRunning] =
+    useState(false);
+
+  const [pollIntervalMs, setPollIntervalMs] =
+    useState(
+      settings.apiBot?.requestIntervalMs || 3000,
+    );
+
+  const [endpointUrl, setEndpointUrl] =
+    useState(
+      settings.apiBot?.endpointUrl ||
+        NINJA_API_BASE,
+    );
+
+  const [networkLogs, setNetworkLogs] =
+    useState<NetworkLog[]>([]);
+
+  const [totalRequests, setTotalRequests] =
+    useState(0);
+
+  const [fastestLatency, setFastestLatency] =
+    useState(0);
+
+  const [lastLatency, setLastLatency] =
+    useState(0);
+
+  const [activeTab, setActiveTab] =
+    useState<
+      "console" | "params" | "guide"
+    >("console");
+
+  const [lastShiftCount, setLastShiftCount] =
+    useState(0);
+
+  const [isLoading, setIsLoading] =
+    useState(false);
+
+  const [connectionStatus, setConnectionStatus] =
+    useState<
+      "idle" | "checking" | "connected" | "error"
+    >("idle");
+
+  const logsEndRef =
+    useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (activeTab === "console") {
+      logsEndRef.current?.scrollIntoView({
+        behavior: "smooth",
+      });
+    }
+  }, [networkLogs, activeTab]);
+
+  const addNetworkLog = (
+    method: "GET" | "POST",
+    endpoint: string,
+    status: number,
+    latencyMs: number,
+    responseSnippet: string,
+    type:
+      | "poll"
+      | "book"
+      | "auth"
+      | "error",
+  ) => {
+    const entry: NetworkLog = {
+      id: `${Date.now()}-${Math.random()}`,
+      time: new Date().toLocaleTimeString(
+        "ar-SA",
+      ),
+      method,
+      endpoint,
+      status,
+      latencyMs,
+      responseSnippet,
+      type,
+    };
+
+    setNetworkLogs((prev) => [
+      ...prev.slice(-24),
+      entry,
+    ]);
+
+    setTotalRequests(
+      (prev) => prev + 1,
+    );
+
+    setLastLatency(latencyMs);
+
+    setFastestLatency((previous) => {
+      if (
+        previous === 0 ||
+        latencyMs < previous
+      ) {
+        return latencyMs;
+      }
+
+      return previous;
+    });
+  };
+
+  const getErrorDetails = (
+    error: unknown,
+  ) => {
+    if (error instanceof NinjaApiError) {
+      return {
+        status: error.status,
+        message: error.message,
+      };
+    }
+
+    if (error instanceof Error) {
+      return {
+        status: 0,
+        message: error.message,
+      };
+    }
+
+    return {
+      status: 0,
+      message: String(error),
+    };
+  };
+
+  /*
+   * Read real Ninja shifts.
+   *
+   * This is intentionally read-only.
+   *
+   * The current ninjaApi.ts helper does not
+   * fabricate Play Integrity / Incognia /
+   * HMAC headers.
+   */
+  const fetchRealNinjaShifts = async () => {
+    if (isLoading) {
+      return;
+    }
+
+    setIsLoading(true);
+    setConnectionStatus("checking");
+
+    const started =
+      performance.now();
+
+    try {
+      const response =
+        await getNinjaShifts(0);
+
+      const latency = Math.round(
+        performance.now() - started,
+      );
+
+      const shifts =
+        Array.isArray(response?.data)
+          ? response.data
+          : [];
+
+      setLastShiftCount(
+        shifts.length,
+      );
+
+      addNetworkLog(
+        "GET",
+        "/captains/shifts?pageId=0",
+        200,
+        latency,
+        JSON.stringify({
+          success:
+            response?.success,
+          page:
+            response?.page,
+          pageCount:
+            response?.pageCount,
+          totalElements:
+            response?.totalElements,
+          dataCount:
+            shifts.length,
+        }),
+        "poll",
+      );
+
+      setConnectionStatus(
+        "connected",
+      );
+
+      onAddLog(
+        "success",
+        `??? ????? ????? Ninja ????????: ${shifts.length} ???`,
+        `GET ${NINJA_API_BASE}/captains/shifts?pageId=0 ? ${latency}ms`,
+        latency,
+      );
+
+      /*
+       * Convert the real Ninja API model
+       * into the NATAN Shift model.
+       */
+      const mapped =
+        mapNinjaShiftsToNatanShifts(
+          shifts,
+        );
+
+      /*
+       * IMPORTANT:
+       * Send the mapped real shifts to App.tsx
+       * so they appear in the NATAN radar.
+       */
+      onShiftsUpdated(mapped);
+
+      onAddLog(
+        "info",
+        `?? ????? ${mapped.length} ??? ??? NATAN`,
+        "?? ????? ????? ??????? ???????? ???? ????? ???.",
+      );
+    } catch (error) {
+      const latency = Math.round(
+        performance.now() - started,
+      );
+
+      const details =
+        getErrorDetails(error);
+
+      addNetworkLog(
+        "GET",
+        "/captains/shifts?pageId=0",
+        details.status,
+        latency,
+        details.message,
+        "error",
+      );
+
+      setConnectionStatus(
+        "error",
+      );
+
+      onAddLog(
+        "error",
+        "???? ????? API ????? ?? Ninja",
+        details.message,
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchActiveShifts = async () => {
+    if (isLoading) {
+      return;
+    }
+
+    setIsLoading(true);
+    setConnectionStatus("checking");
+
+    const started =
+      performance.now();
+
+    try {
+      const response =
+        await getNinjaActiveShifts(0);
+
+      const latency = Math.round(
+        performance.now() - started,
+      );
+
+      const shifts =
+        Array.isArray(response?.data)
+          ? response.data
+          : [];
+
+      addNetworkLog(
+        "GET",
+        "/captains/shifts/active?pageId=0",
+        200,
+        latency,
+        JSON.stringify({
+          success:
+            response?.success,
+          dataCount:
+            shifts.length,
+        }),
+        "poll",
+      );
+
+      setConnectionStatus(
+        "connected",
+      );
+
+      /*
+       * Active shifts are also mapped and
+       * forwarded to NATAN.
+       */
+      const mapped =
+        mapNinjaShiftsToNatanShifts(
+          shifts,
+        );
+
+      onShiftsUpdated(mapped);
+
+      setLastShiftCount(
+        shifts.length,
+      );
+
+      onAddLog(
+        "success",
+        `?? ??? ??????? ??????: ${shifts.length}`,
+        `GET ${NINJA_API_BASE}/captains/shifts/active?pageId=0 ? ${latency}ms`,
+        latency,
+      );
+    } catch (error) {
+      const latency = Math.round(
+        performance.now() - started,
+      );
+
+      const details =
+        getErrorDetails(error);
+
+      addNetworkLog(
+        "GET",
+        "/captains/shifts/active?pageId=0",
+        details.status,
+        latency,
+        details.message,
+        "error",
+      );
+
+      setConnectionStatus(
+        "error",
+      );
+
+      onAddLog(
+        "error",
+        "???? ????? ??????? ??????",
+        details.message,
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchShiftSummaries = async () => {
+    if (isLoading) {
+      return;
+    }
+
+    setIsLoading(true);
+
+    const started =
+      performance.now();
+
+    try {
+      const response =
+        await getNinjaShiftSummaries(0);
+
+      const latency = Math.round(
+        performance.now() - started,
+      );
+
+      addNetworkLog(
+        "GET",
+        "/captains/shifts/summaries?pageId=0",
+        200,
+        latency,
+        typeof response === "string"
+          ? response.slice(0, 300)
+          : JSON.stringify(
+              response,
+            ).slice(0, 300),
+        "poll",
+      );
+
+      onAddLog(
+        "success",
+        "?? ??? ?????? ??????? ?? Ninja",
+        `GET ${NINJA_API_BASE}/captains/shifts/summaries?pageId=0 ? ${latency}ms`,
+        latency,
+      );
+    } catch (error) {
+      const latency = Math.round(
+        performance.now() - started,
+      );
+
+      const details =
+        getErrorDetails(error);
+
+      addNetworkLog(
+        "GET",
+        "/captains/shifts/summaries?pageId=0",
+        details.status,
+        latency,
+        details.message,
+        "error",
+      );
+
+      onAddLog(
+        "error",
+        "???? ??? ?????? ???????",
+        details.message,
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /*
+   * Read-only monitoring.
+   *
+   * This does not perform booking.
+   */
+  useEffect(() => {
+    if (!isBotRunning) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const run = async () => {
+      if (cancelled) {
+        return;
+      }
+
+      await fetchRealNinjaShifts();
+    };
+
+    run();
+
+    const timer =
+      window.setInterval(
+        run,
+        Math.max(
+          pollIntervalMs,
+          1000,
+        ),
+      );
+
+    return () => {
+      cancelled = true;
+
+      window.clearInterval(
+        timer,
+      );
+    };
+  }, [
+    isBotRunning,
+    pollIntervalMs,
+  ]);
+
+  const handleToggleBot = () => {
+    soundFX.playClick();
+
+    const nextState =
+      !isBotRunning;
+
+    setIsBotRunning(
+      nextState,
+    );
+
+    if (nextState) {
+      soundFX.playSuccess();
+
+      onAddLog(
+        "info",
+        "?? ????? ???? Ninja API ???????",
+        `GET /captains/shifts?pageId=0 ?? ${pollIntervalMs}ms`,
+      );
+    } else {
+      onAddLog(
+        "info",
+        "?? ????? ???? Ninja API",
+      );
+    }
+  };
+
+  const handleManualApiTest = async () => {
+    soundFX.playClick();
+
+    await fetchRealNinjaShifts();
+  };
+
+  const handleSaveApiSettings = () => {
+    soundFX.playClick();
+
+    onUpdateSettings({
+      bookingMode:
+        "direct_api",
+
+      apiBot: {
+        enabled:
+          isBotRunning,
+
+        endpointUrl:
+          endpointUrl ||
+          NINJA_API_BASE,
+
+        /*
+         * Kept empty intentionally.
+         * The app does not accept or store a
+         * manually entered real Bearer token.
+         */
+        bearerToken:
+          "",
+
+        deviceId:
+          settings.apiBot?.deviceId ||
+          "",
+
+        appVersion:
+          settings.apiBot?.appVersion ||
+          "1.12.131",
+
+        requestIntervalMs:
+          pollIntervalMs,
+
+        telegramAlertEnabled:
+          settings.apiBot
+            ?.telegramAlertEnabled ??
+          false,
+
+        telegramBotToken:
+          settings.apiBot
+            ?.telegramBotToken ||
+          "",
+
+        telegramChatId:
+          settings.apiBot
+            ?.telegramChatId ||
+          "",
+
+        simulateDirectApi:
+          false,
+      },
+    });
+
+    onAddLog(
+      "success",
+      "?? ??? ??????? Ninja API",
+      "??? ??????? ?????? ??? ????? ??????.",
+    );
+  };
+
+  const statusText =
+    connectionStatus ===
+    "connected"
+      ? "?? ???????"
+      : connectionStatus ===
+          "checking"
+        ? "???? ?????"
+        : connectionStatus ===
+            "error"
+          ? "??? / ????? ??????"
+          : "???? ?????";
+
+  const statusClass =
+    connectionStatus ===
+    "connected"
+      ? "bg-emerald-400"
+      : connectionStatus ===
+          "checking"
+        ? "bg-amber-400 animate-pulse"
+        : connectionStatus ===
+            "error"
+          ? "bg-rose-400"
+          : "bg-slate-500";
+
+  return (
+    <div className="space-y-6">
+
+      {/* Header */}
+
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-purple-950/40 to-indigo-950/30 border border-purple-500/30 p-5 sm:p-6 shadow-2xl">
+
+        <div className="absolute -top-16 -left-16 w-56 h-56 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="absolute -bottom-16 -right-16 w-56 h-56 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+
+          <div className="flex items-start gap-4">
+
+            <div className="p-3 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-lg shrink-0">
+              <Server className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-1">
+
+              <div className="flex items-center gap-2.5 flex-wrap">
+
+                <h2 className="text-xl font-black text-white tracking-tight">
+                  Ninja API
+                </h2>
+
+                <span className="text-xs bg-purple-500/20 text-purple-300 px-3 py-0.5 rounded-full border border-purple-500/40 font-mono font-bold">
+                  Real API
+                </span>
+
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
+                ??? NATAN ?? ????? Ninja ????????
+                ?????? ??????? ????????? ?? ???????.
+                ????? ????? ??????? ??? ????? ??????.
+              </p>
+
+              <div className="flex items-center gap-2 pt-2">
+
+                <Globe className="w-3.5 h-3.5 text-purple-400" />
+
+                <code className="text-[10px] sm:text-xs text-purple-300 font-mono break-all">
+                  {NINJA_API_BASE}
+                </code>
+
+              </div>
+
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+
+            <button
+              onClick={handleToggleBot}
+              disabled={isLoading}
+              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all shadow-lg ${
+                isBotRunning
+                  ? "bg-rose-500 hover:bg-rose-600 text-white"
+                  : "bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white"
+              } disabled:opacity-50`}
+            >
+
+              {isBotRunning ? (
+                <>
+                  <Square className="w-4 h-4 fill-white" />
+                  ????? ?????
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 fill-white" />
+                  ????? API
+                </>
+              )}
+
+            </button>
+
+            <button
+              onClick={handleManualApiTest}
+              disabled={isLoading}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 text-xs font-bold disabled:opacity-50"
+            >
+
+              <RefreshCw
+                className={`w-4 h-4 ${
+                  isLoading
+                    ? "animate-spin"
+                    : ""
+                }`}
+              />
+
+              ?????? API ???????
+
+            </button>
+
+          </div>
+        </div>
+
+        <div className="mt-5 pt-4 border-t border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+          <div className="bg-slate-950/60 rounded-xl p-3 border border-slate-800">
+
+            <span className="text-[11px] text-slate-400 block">
+              ???? ???????
+            </span>
+
+            <div className="flex items-center gap-2 mt-1">
+
+              <span
+                className={`w-2 h-2 rounded-full ${statusClass}`}
+              />
+
+              <span className="font-bold text-xs text-white">
+                {statusText}
+              </span>
+
+            </div>
+          </div>
+
+          <div className="bg-slate-950/60 rounded-xl p-3 border border-slate-800">
+
+            <span className="text-[11px] text-slate-400 block">
+              ??? ???????
+            </span>
+
+            <span className="font-mono font-black text-sm text-purple-400">
+              {lastLatency
+                ? `${lastLatency} ms`
+                : "--"}
+            </span>
+
+          </div>
+
+          <div className="bg-slate-950/60 rounded-xl p-3 border border-slate-800">
+
+            <span className="text-[11px] text-slate-400 block">
+              ??? ???????
+            </span>
+
+            <span className="font-mono font-black text-sm text-emerald-400">
+              {lastShiftCount}
+            </span>
+
+          </div>
+
+          <div className="bg-slate-950/60 rounded-xl p-3 border border-slate-800">
+
+            <span className="text-[11px] text-slate-400 block">
+              ?????? ???????
+            </span>
+
+            <span className="font-mono font-black text-sm text-indigo-400">
+              {totalRequests}
+            </span>
+
+          </div>
+
+        </div>
+      </div>
+
+      {/* Security / current connection status */}
+
+      <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4">
+
+        <div className="flex items-start gap-3">
+
+          <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+
+          <div className="space-y-1">
+
+            <h3 className="text-sm font-bold text-amber-300">
+              ???? ????? ???????
+            </h3>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              ?? ??????? ??? API ??????? ?? ????? Ninja?
+              ??? ????? Ninja ??????? ????? ?????? ?????
+              Authorization ? installation-uid ? Integrity headers
+              ?????? HMAC? ???????? ??? Play Integrity / Incognia
+              ?? ??? ????????.
+              ???? ??? ??????? ???? ???? ??? API ??? ????? ????
+              ??????? ???? ??? ????? ????? ????? ???????.
+            </p>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* Tabs */}
+
+      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+
+        <div className="grid grid-cols-3 gap-1.5 w-full sm:w-auto">
+
+          <button
+            onClick={() =>
+              setActiveTab("console")
+            }
+            className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold ${
+              activeTab === "console"
+                ? "bg-purple-600 text-white"
+                : "bg-slate-900 text-slate-300 border border-slate-800"
+            }`}
+          >
+            <Terminal className="w-3.5 h-3.5" />
+            Console
+          </button>
+
+          <button
+            onClick={() =>
+              setActiveTab("params")
+            }
+            className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold ${
+              activeTab === "params"
+                ? "bg-purple-600 text-white"
+                : "bg-slate-900 text-slate-300 border border-slate-800"
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5" />
+            ?????????
+          </button>
+
+          <button
+            onClick={() =>
+              setActiveTab("guide")
+            }
+            className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold ${
+              activeTab === "guide"
+                ? "bg-purple-600 text-white"
+                : "bg-slate-900 text-slate-300 border border-slate-800"
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            ??????? API
+          </button>
+
+        </div>
+
+      </div>
+
+      {/* Console */}
+
+      {activeTab === "console" && (
+        <div className="space-y-4">
+
+          <div className="bg-[#0b0f19] border border-slate-800 rounded-2xl p-4 font-mono text-xs shadow-2xl overflow-hidden">
+
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800/80">
+
+              <div className="flex items-center gap-2">
+
+                <div className="flex gap-1.5">
+
+                  <span className="w-3 h-3 rounded-full bg-rose-500/80" />
+                  <span className="w-3 h-3 rounded-full bg-amber-500/80" />
+                  <span className="w-3 h-3 rounded-full bg-emerald-500/80" />
+
+                </div>
+
+                <span className="text-slate-400 text-[11px]">
+                  natan@ninja-api: ~/traffic
+                </span>
+
+              </div>
+
+              <button
+                onClick={() =>
+                  setNetworkLogs([])
+                }
+                className="text-slate-400 hover:text-white px-2 py-1 rounded bg-slate-800 text-[10px]"
+              >
+                ??? ?????
+              </button>
+
+            </div>
+
+            <div className="max-h-[400px] overflow-y-auto space-y-1.5 pr-1">
+
+              {networkLogs.length === 0 ? (
+
+                <div className="py-12 text-center text-slate-500 font-sans">
+
+                  ?? ???? ????? ??? ????.
+
+                  <div className="mt-3">
+
+                    ????
+                    <span className="text-purple-400 mx-1">
+                      ?????? API ???????
+                    </span>
+                    ???? ??? ???.
+
+                  </div>
+
+                </div>
+
+              ) : (
+
+                networkLogs.map(
+                  (log) => (
+                    <div
+                      key={log.id}
+                      className={`flex items-start justify-between gap-2 p-2 rounded-lg ${
+                        log.type === "error"
+                          ? "bg-rose-950/30 border border-rose-500/20"
+                          : "hover:bg-slate-800/50"
+                      }`}
+                    >
+
+                      <div className="flex items-start gap-2 overflow-hidden">
+
+                        <span className="text-slate-500 shrink-0 text-[10px]">
+                          {log.time}
+                        </span>
+
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-black shrink-0 ${
+                            log.method ===
+                            "POST"
+                              ? "bg-purple-600 text-white"
+                              : "bg-slate-800 text-sky-300"
+                          }`}
+                        >
+                          {log.method}
+                        </span>
+
+                        <span className="font-bold truncate text-[11px] text-slate-300">
+                          {log.endpoint}
+                        </span>
+
+                        <span className="text-slate-500 hidden sm:inline truncate">
+                          {log.responseSnippet}
+                        </span>
+
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+
+                        <span
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            log.status >=
+                              200 &&
+                            log.status < 300
+                              ? "bg-emerald-500/20 text-emerald-400"
+                              : "bg-rose-500/20 text-rose-400"
+                          }`}
+                        >
+                          {log.status ||
+                            "ERR"}
+                        </span>
+
+                        <span className="text-purple-400 font-bold text-[10px]">
+                          {log.latencyMs}ms
+                        </span>
+
+                      </div>
+
+                    </div>
+                  ),
+                )
+
+              )}
+
+              <div
+                ref={logsEndRef}
+              />
+
+            </div>
+
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+
+            <button
+              onClick={fetchRealNinjaShifts}
+              disabled={isLoading}
+              className="p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-purple-500/40 text-left disabled:opacity-50"
+            >
+
+              <div className="flex items-center gap-2">
+
+                <RefreshCw className="w-4 h-4 text-purple-400" />
+
+                <span className="text-xs font-bold text-white">
+                  captains/shifts
+                </span>
+
+              </div>
+
+              <p className="text-[10px] text-slate-400 mt-2">
+                GET /captains/shifts?pageId=0
+              </p>
+
+            </button>
+
+            <button
+              onClick={fetchActiveShifts}
+              disabled={isLoading}
+              className="p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-purple-500/40 text-left disabled:opacity-50"
+            >
+
+              <div className="flex items-center gap-2">
+
+                <Zap className="w-4 h-4 text-emerald-400" />
+
+                <span className="text-xs font-bold text-white">
+                  Active Shifts
+                </span>
+
+              </div>
+
+              <p className="text-[10px] text-slate-400 mt-2">
+                GET /captains/shifts/active
+              </p>
+
+            </button>
+
+            <button
+              onClick={fetchShiftSummaries}
+              disabled={isLoading}
+              className="p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-purple-500/40 text-left disabled:opacity-50"
+            >
+
+              <div className="flex items-center gap-2">
+
+                <Terminal className="w-4 h-4 text-sky-400" />
+
+                <span className="text-xs font-bold text-white">
+                  Summaries
+                </span>
+
+              </div>
+
+              <p className="text-[10px] text-slate-400 mt-2">
+                GET /captains/shifts/summaries
+              </p>
+
+            </button>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* Parameters */}
+
+      {activeTab === "params" && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+          <div className="lg:col-span-8 space-y-5 bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
+
+            <div className="flex items-center gap-2 text-white font-bold text-sm border-b border-slate-800 pb-3">
+
+              <Server className="w-4 h-4 text-purple-400" />
+
+              ??????? Ninja API
+
+            </div>
+
+            <div className="space-y-2">
+
+              <label className="text-xs font-semibold text-slate-300">
+                ????? API
+              </label>
+
+              <input
+                type="text"
+                value={endpointUrl}
+                onChange={(e) =>
+                  setEndpointUrl(
+                    e.target.value,
+                  )
+                }
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-purple-500"
+              />
+
+            </div>
+
+            <div className="rounded-xl bg-slate-950/60 border border-slate-800 p-4">
+
+              <div className="flex items-center gap-2">
+
+                <ShieldCheck className="w-4 h-4 text-purple-400" />
+
+                <span className="text-xs font-bold text-white">
+                  ????????
+                </span>
+
+              </div>
+
+              <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                ?? ??? ????? Bearer Token ?????? ???.
+                ????? Ninja ?????? ???????? ??? Authorization
+                ??????? ???? ??? installation-uid ?Integrity headers
+                ?????? HMAC? ???? ???????? ?????? Play Integrity
+                ?Incognia.
+              </p>
+
+            </div>
+
+            <div className="space-y-3 p-4 bg-slate-950/60 rounded-xl border border-slate-800">
+
+              <div className="flex justify-between items-center">
+
+                <span className="text-xs font-semibold text-slate-300">
+                  ???? ??? ???????
+                </span>
+
+                <span className="font-mono text-purple-400 font-bold text-xs">
+                  {pollIntervalMs} ms
+                </span>
+
+              </div>
+
+              <input
+                type="range"
+                min={1000}
+                max={30000}
+                step={500}
+                value={pollIntervalMs}
+                onChange={(e) =>
+                  setPollIntervalMs(
+                    Number(
+                      e.target.value,
+                    ),
+                  )
+                }
+                className="w-full accent-purple-500"
+              />
+
+              <div className="flex justify-between text-[10px] text-slate-500">
+
+                <span>
+                  1 ?????
+                </span>
+
+                <span>
+                  3 ?????
+                </span>
+
+                <span>
+                  30 ?????
+                </span>
+
+              </div>
+
+            </div>
+
+            <div className="flex justify-end">
+
+              <button
+                type="button"
+                onClick={
+                  handleSaveApiSettings
+                }
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-black"
+              >
+
+                <CheckCircle2 className="w-4 h-4" />
+
+                ??? ??????? API
+
+              </button>
+
+            </div>
+
+          </div>
+
+          <div className="lg:col-span-4 space-y-4">
+
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
+
+              <h4 className="text-xs font-bold text-purple-300 flex items-center gap-2">
+
+                <ShieldCheck className="w-4 h-4 text-purple-400" />
+
+                ?? ?? ???????
+
+              </h4>
+
+              <ul className="mt-3 text-[11px] text-slate-300 space-y-2 leading-relaxed">
+
+                <li>
+                  ? Base URL ???????
+                </li>
+
+                <li>
+                  ? GET /captains/shifts
+                </li>
+
+                <li>
+                  ? GET /captains/shifts/active
+                </li>
+
+                <li>
+                  ? GET /captains/shifts/summaries
+                </li>
+
+                <li>
+                  ? ???? DataResponse
+                </li>
+
+                <li>
+                  ? ????? Shift
+                </li>
+
+              </ul>
+
+            </div>
+
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
+
+              <h4 className="text-xs font-bold text-sky-300 flex items-center gap-2">
+
+                <Smartphone className="w-4 h-4 text-sky-400" />
+
+                ?? ?? ??? ?????? ???
+
+              </h4>
+
+              <ul className="mt-3 text-[11px] text-slate-300 space-y-2 leading-relaxed">
+
+                <li>
+                  ? ???????? ??????? ???????
+                </li>
+
+                <li>
+                  ? installation-uid
+                </li>
+
+                <li>
+                  ? Integrity headers
+                </li>
+
+                <li>
+                  ? HMAC request signature
+                </li>
+
+                <li>
+                  ? ????? ???????
+                </li>
+
+              </ul>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* Guide */}
+
+      {activeTab === "guide" && (
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 space-y-5">
+
+          <div className="border-b border-slate-800 pb-4">
+
+            <h3 className="text-base font-black text-white flex items-center gap-2">
+
+              <Smartphone className="w-5 h-5 text-purple-400" />
+
+              ???? ??????? API
+
+            </h3>
+
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+              ?? ?????? ????? ??? endpoints ???????? ?? ?????
+              Ninja Driver. ?????? ??????? ?? ??? NATAN ?????
+              ???????? ???????? ???? ??????? ?????? ?????.
+            </p>
+
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4">
+
+              <div className="flex items-center gap-2">
+
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+
+                <h4 className="text-xs font-bold text-white">
+                  ?? ???????
+                </h4>
+
+              </div>
+
+              <p className="text-[11px] text-slate-400 mt-3 leading-relaxed">
+
+                ???????:
+                <br />
+
+                <code className="text-purple-300">
+                  {NINJA_API_BASE}
+                </code>
+
+                <br />
+                <br />
+
+                ???????:
+                <br />
+
+                <code className="text-purple-300">
+                  GET /captains/shifts?pageId=0
+                </code>
+
+              </p>
+
+            </div>
+
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4">
+
+              <div className="flex items-center gap-2">
+
+                <AlertTriangle className="w-5 h-5 text-amber-400" />
+
+                <h4 className="text-xs font-bold text-white">
+                  ????? ???? ?????
+                </h4>
+
+              </div>
+
+              <p className="text-[11px] text-slate-400 mt-3 leading-relaxed">
+
+                ????? Ninja ?? ????? ??? Bearer Token ????.
+                ?? ??????? ???? ???? installation-uid ?Integrity
+                headers ?????? HMAC? ???? ?????? ???????? ??????
+                Play Integrity ?Incognia.
+
+              </p>
+
+            </div>
+
+          </div>
+
+          <div className="rounded-xl bg-purple-950/20 border border-purple-500/20 p-4">
+
+            <p className="text-xs text-purple-200 leading-relaxed">
+
+              <strong>
+                ?????? ???????:
+              </strong>{" "}
+              ???? NATAN ??? ???????? ???????? ???? ??????
+              Ninja API? ?? ????? ????? ???????? ??????? ?? ?????
+              NATAN. ??? ???? ??????? ???? ????? ??????? ??????
+              ???????? ???? ????? ????? ???????.
+
+            </p>
+
+          </div>
+
+        </div>
+      )}
+
+    </div>
+  );
+};
+

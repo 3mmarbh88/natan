@@ -1,0 +1,49 @@
+﻿package com.natan.smart.automation;
+
+import android.accessibilityservice.AccessibilityService;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
+import android.util.Log;
+
+public class NatanAccessibilityService extends AccessibilityService {
+
+    private static final String TAG = "NATAN_ACCESSIBILITY";
+
+    @Override
+    protected void onServiceConnected() {
+        super.onServiceConnected();
+        Log.d(TAG, "NATAN Accessibility Service connected");
+    }
+
+    @Override
+    public void onAccessibilityEvent(AccessibilityEvent event) {
+        if (event == null) {
+            return;
+        }
+
+        AccessibilityNodeInfo rootNode = getRootInActiveWindow();
+
+        if (rootNode == null) {
+            return;
+        }
+
+        String packageName = String.valueOf(event.getPackageName());
+
+        Log.d(
+            TAG,
+            "Package: " + packageName +
+            " | Event: " + event.getEventType()
+        );
+    }
+
+    @Override
+    public void onInterrupt() {
+        Log.d(TAG, "NATAN Accessibility Service interrupted");
+    }
+
+    @Override
+    public void onDestroy() {
+        Log.d(TAG, "NATAN Accessibility Service destroyed");
+        super.onDestroy();
+    }
+}

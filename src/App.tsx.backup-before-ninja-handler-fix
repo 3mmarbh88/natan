@@ -1,0 +1,3252 @@
+import React, { useState, useEffect } from 'react';
+import confetti from 'canvas-confetti';
+
+import { Navbar } from './components/Navbar';
+import { SpeedEngineConfig } from './components/SpeedEngineConfig';
+import { CriteriaEditor } from './components/CriteriaEditor';
+import { SimulatorRadar } from './components/SimulatorRadar';
+import { LogViewer } from './components/LogViewer';
+import { CodeExportModal } from './components/CodeExportModal';
+import { AiAdvisor } from './components/AiAdvisor';
+import { DirectApiBot } from './components/DirectApiBot';
+import { WhatsAppSupport } from './components/WhatsAppSupport';
+import AuthModal from './components/AuthModal';
+
+import {
+  Shift,
+  BookingSettings,
+  LogEntry,
+  PerformanceStats,
+  AppAuthSession,
+} from './types';
+
+import { SAUDI_CITIES, DAYS_OF_WEEK } from './data/saudiCities';
+import { soundFX } from './utils/audio';
+import { haptics } from './utils/haptics';
+import { wakeLock } from './utils/wakeLock';
+import { findConflictingShift } from './utils/timeConflict';
+import { NatanLogo } from './components/NatanLogo';
+import { useLanguage } from './utils/i18n';
+
+import {
+  activateNatanUser,
+  getNatanDeviceId,
+} from './utils/natanApi';
+
+import {
+  Zap,
+  Radio,
+  SlidersHorizontal,
+  Flame,
+  Server,
+  ShieldCheck,
+  MessageCircle,
+  Lock,
+} from 'lucide-react';
+
+const INITIAL_SETTINGS: BookingSettings = {
+  autoBooking: true,
+  monitoring: true,
+
+  speedMode: 'turbo',
+  scanIntervalMs: 80,
+  humanJitterMs: 15,
+
+  autoRefresh: true,
+  refreshIntervalSec: 3,
+
+  autoConfirmDialog: true,
+  bypassBatteryOptimization: true,
+  wakeLockEnabled: true,
+  secureScreenMode: true,
+
+  branchKeywordNumbers: [
+    '#420',
+    '#422',
+    '#495',
+    '#534',
+    '#266',
+    '#78',
+  ],
+
+  minuteTolerance: 5,
+  volumeKeysControl: true,
+
+  multiShiftWindows: [
+    {
+      id: 1,
+      name: 'مناوبة 1 (الفترة الأساسية)',
+      enabled: true,
+      startTime: '08:01',
+      endTime: '23:59',
+    },
+    {
+      id: 2,
+      name: 'مناوبة 2 (الفترة الإضافية)',
+      enabled: false,
+      startTime: '12:00',
+      endTime: '23:59',
+    },
+    {
+      id: 3,
+      name: 'مناوبة 3 (المسائية/الفجر)',
+      enabled: false,
+      startTime: '00:00',
+      endTime: '08:00',
+    },
+  ],
+
+  selectedCity: 'dammam_khobar',
+
+  selectedDistricts: [
+    'حبوبة HABOBA (#495)',
+    'ظهران Dahran (#420)',
+    'ضاحية الملك فهد King Fahad (#534)',
+    'الشاطئ Shatie (#266)',
+    'الأمل Al Amal (#532)',
+  ],
+
+  selectedDays: [
+    'الأربعاء',
+    'الخميس',
+    'الجمعة',
+    'السبت',
+    'الأحد',
+  ],
+
+  startTime: '00:00',
+  endTime: '23:59',
+
+  minDurationHours: 1,
+  maxDurationHours: 14,
+
+  onlyPeakHours: false,
+
+  soundAlert: true,
+  vibrationAlert: true,
+};
+
+export default function App() {
+  const { t, isAr } = useLanguage();
+
+  /*
+   * ============================================================
+   * SETTINGS
+   * ============================================================
+   */
+
+  const [settings, setSettings] =
+    useState<BookingSettings>(INITIAL_SETTINGS);
+
+  const [activeView, setActiveView] =
+    useState<
+      'radar' | 'criteria' | 'engine' | 'code' | 'api_bot'
+    >('radar');
+
+  const [isCodeModalOpen, setIsCodeModalOpen] =
+    useState<boolean>(false);
+
+  const [isAiAdvisorOpen, setIsAiAdvisorOpen] =
+    useState<boolean>(false);
+
+  const [isAutoSimulating, setIsAutoSimulating] =
+    useState<boolean>(true);
+
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] =
+    useState<boolean>(false);
+
+  /*
+   * ============================================================
+   * AUTHENTICATION / LICENSE
+   * ============================================================
+   */
+
+  const [authSession, setAuthSession] =
+    useState<AppAuthSession | null>(() => {
+      try {
+        const saved =
+          localStorage.getItem('natan_auth_session');
+
+        if (!saved) {
+          return null;
+        }
+
+        const parsed =
+          JSON.parse(saved) as AppAuthSession;
+
+        /*
+         * الحساب غير المفعّل:
+         * يسمح له بالدخول إلى البرنامج.
+         *
+         * الحساب المفعّل:
+         * يسمح له بالدخول طالما الترخيص لم ينته.
+         */
+        if (
+          parsed.isAuthenticated &&
+          (
+            !parsed.isActivated ||
+            !parsed.expiresAt ||
+            parsed.expiresAt > Date.now()
+          )
+        ) {
+          return parsed;
+        }
+      } catch {
+        // تجاهل خطأ الجلسة المحفوظة
+      }
+
+      return null;
+    });
+
+  /*
+   * المستخدم مسجل دخول حتى لو لم يكن الحساب مفعلاً.
+   */
+  const isAuthenticated =
+    !!authSession?.isAuthenticated;
+
+  /*
+   * الترخيص الفعال:
+   *
+   * تسجيل الدخول
+   * +
+   * التفعيل
+   * +
+   * تاريخ انتهاء صالح.
+   */
+  const isLicensed =
+    !!(
+      authSession &&
+      authSession.isAuthenticated &&
+      authSession.isActivated &&
+      authSession.expiresAt &&
+      authSession.expiresAt > Date.now()
+    );
+
+  /*
+   * نافذة تسجيل الدخول.
+   *
+   * الحساب غير المفعّل لا يحتاج Login مرة أخرى
+   * طالما الجلسة محفوظة وصالحة.
+   */
+  const [showAuthModal, setShowAuthModal] =
+    useState<boolean>(() => !isAuthenticated);
+
+  /*
+   * نافذة Activation.
+   */
+  const [showActivationModal, setShowActivationModal] =
+    useState<boolean>(false);
+
+  const [activationCode, setActivationCode] =
+    useState<string>('');
+
+  const [activationLoading, setActivationLoading] =
+    useState<boolean>(false);
+
+  const [activationError, setActivationError] =
+    useState<string>('');
+
+  /*
+   * ============================================================
+   * ACTIVATION MODAL
+   * ============================================================
+   */
+
+  const openActivationModal = () => {
+    setActivationError('');
+    setActivationCode('');
+    setShowActivationModal(true);
+  };
+
+  /*
+   * ============================================================
+   * ACTIVATION REQUEST
+   * ============================================================
+   */
+
+  const handleProtectedActivation = async () => {
+    const cleanCode =
+      activationCode
+        .trim()
+        .toUpperCase();
+
+    if (!cleanCode) {
+      setActivationError(
+        isAr
+          ? 'يرجى إدخال كود التفعيل.'
+          : 'Please enter the activation code.'
+      );
+      return;
+    }
+
+    if (!authSession?.username) {
+      setActivationError(
+        isAr
+          ? 'تعذر تحديد حساب NATAN الحالي.'
+          : 'Unable to determine the current NATAN account.'
+      );
+      return;
+    }
+
+    setActivationLoading(true);
+    setActivationError('');
+
+    try {
+      const deviceId =
+        await getNatanDeviceId();
+
+      if (!deviceId) {
+        throw new Error(
+          isAr
+            ? 'تعذر الحصول على معرف الجهاز.'
+            : 'Unable to get the device ID.'
+        );
+      }
+
+      const session =
+        await activateNatanUser({
+          identifier:
+            authSession.username,
+
+          activationCode:
+            cleanCode,
+
+          deviceId,
+        });
+
+      if (
+        !session?.isAuthenticated ||
+        !session?.isActivated
+      ) {
+        throw new Error(
+          isAr
+            ? 'تعذر تفعيل الحساب. يرجى التحقق من كود التفعيل.'
+            : 'Account activation failed. Please check the activation code.'
+        );
+      }
+
+      /*
+       * حفظ الجلسة الجديدة بعد التفعيل.
+       */
+      try {
+        localStorage.setItem(
+          'natan_auth_session',
+          JSON.stringify(session)
+        );
+      } catch {
+        // safe
+      }
+
+      setAuthSession(session);
+
+      setActivationCode('');
+      setActivationError('');
+      setShowActivationModal(false);
+
+      addLog(
+        'success',
+        isAr
+          ? `🔓 تم تفعيل حساب NATAN بنجاح. الترخيص: ${
+              session.planName || 'NATAN'
+            }`
+          : `🔓 NATAN account activated successfully. Plan: ${
+              session.planName || 'NATAN'
+            }`
+      );
+
+      try {
+        confetti({
+          particleCount: 100,
+          spread: 75,
+          origin: {
+            y: 0.5,
+          },
+        });
+      } catch {
+        // safe
+      }
+    } catch (error: any) {
+      setActivationError(
+        error?.message ||
+        (
+          isAr
+            ? 'فشل تفعيل حساب NATAN.'
+            : 'NATAN account activation failed.'
+        )
+      );
+    } finally {
+      setActivationLoading(false);
+    }
+  };
+
+  /*
+   * ============================================================
+   * AUTH SUCCESS
+   * ============================================================
+   *
+   * هذه الدالة هي النقطة المركزية لحفظ جلسة المستخدم.
+   *
+   * بعد:
+   * - Login
+   * - Register
+   * - Biometric restore
+   * - Activation
+   *
+   * يتم تحديث React state وحفظ الجلسة في localStorage.
+   */
+
+  const handleAuthSuccess = (
+    session: AppAuthSession
+  ) => {
+    if (!session?.isAuthenticated) {
+      return;
+    }
+
+    /*
+     * تحديث جلسة التطبيق فوراً.
+     */
+    setAuthSession(session);
+
+    /*
+     * حفظ جلسة الدخول حتى يمكن استعادتها لاحقاً
+     * بواسطة AuthModal / البصمة.
+     */
+    try {
+      localStorage.setItem(
+        'natan_auth_session',
+        JSON.stringify(session)
+      );
+    } catch {
+      // safe
+    }
+
+    /*
+     * إغلاق Login/Register.
+     */
+    setShowAuthModal(false);
+
+    /*
+     * السماح بتشغيل النظام بعد تسجيل الدخول.
+     */
+    setIsAutoSimulating(true);
+
+    /*
+     * إذا كان الحساب مفعلاً.
+     */
+    if (
+      session.isActivated &&
+      session.expiresAt
+    ) {
+      addLog(
+        'success',
+        isAr
+          ? `✨ تم تسجيل الدخول بنجاح والترخيص نشط! [${
+              session.planName || 'NATAN'
+            }] ينتهي في: ${
+              new Date(
+                session.expiresAt
+              ).toLocaleDateString('ar-SA')
+            }`
+          : `✨ Login successful and license is active! [${
+              session.planName || 'NATAN'
+            }] Expires: ${
+              new Date(
+                session.expiresAt
+              ).toLocaleDateString('en-US')
+            }`
+      );
+    } else {
+      /*
+       * الحساب غير مفعّل:
+       * يسمح له بالدخول للبرنامج.
+       *
+       * الحجز والوظائف المحمية ستفتح نافذة التفعيل.
+       */
+      addLog(
+        'success',
+        isAr
+          ? '✅ تم تسجيل الدخول بنجاح. الحساب غير مفعّل حاليًا؛ يمكنك استخدام البرنامج، وسيُطلب التفعيل عند استخدام الميزات المحمية.'
+          : '✅ Login successful. Your account is not activated yet. You can use the program, and activation will be required for protected features.'
+      );
+    }
+
+    try {
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: {
+          y: 0.5,
+        },
+      });
+    } catch {
+      // safe
+    }
+  };
+
+  /*
+   * ============================================================
+   * SHIFTS DATA
+   * ============================================================
+   */
+
+  const [availableShifts, setAvailableShifts] =
+    useState<Shift[]>([
+      {
+        id: 'shift_init_haboba_1',
+        shiftCode: 'DMM-HAB001',
+        city: 'الدمام والخبر',
+        district: 'حبوبة HABOBA (#495)',
+        storeName: 'حبوبة HABOBA',
+        storeNumber: '#495',
+        date: '2026-09-13',
+        dayName: 'الأربعاء (اليوم)',
+        startTime: '١٢:٠١ م',
+        endTime: '١٢:٠٠ ص',
+        durationHours: 12,
+        basePay: 260,
+        bonusPay: 40,
+        totalPay: 300,
+        hourlyRate: 25,
+        isPeak: true,
+        shiftStateLabel: 'نشط',
+        status: 'available',
+        detectedAt: Date.now(),
+      },
+
+      {
+        id: 'shift_init_dahran_2',
+        shiftCode: 'DMM-DHR001',
+        city: 'الدمام والخبر',
+        district: 'ظهران Dahran (#420)',
+        storeName: 'ظهران Dahran',
+        storeNumber: '#420',
+        date: '2026-09-13',
+        dayName: 'الأربعاء (اليوم)',
+        startTime: '٠٧:٠١ ص',
+        endTime: '٠٧:٠٠ م',
+        durationHours: 12,
+        basePay: 280,
+        bonusPay: 50,
+        totalPay: 330,
+        hourlyRate: 27.5,
+        isPeak: true,
+        shiftStateLabel: 'نشط',
+        status: 'available',
+        detectedAt: Date.now(),
+      },
+
+      {
+        id: 'shift_init_king_fahad_3',
+        shiftCode: 'DMM-FAY001',
+        city: 'الدمام والخبر',
+        district:
+          'ضاحية الملك فهد King Fahad (#534)',
+        storeName: 'ضاحية الملك فهد',
+        storeNumber: '#534',
+        date: '2026-09-13',
+        dayName: 'الأربعاء (اليوم)',
+        startTime: '١٠:٢٥ ص',
+        endTime: '١٠:٢٥ م',
+        durationHours: 12,
+        basePay: 270,
+        bonusPay: 40,
+        totalPay: 310,
+        hourlyRate: 25.8,
+        isPeak: false,
+        shiftStateLabel: 'نشط',
+        status: 'available',
+        detectedAt: Date.now(),
+      },
+    ]);
+
+  const [capturedShifts, setCapturedShifts] =
+    useState<Shift[]>([]);
+
+  const [logs, setLogs] =
+    useState<LogEntry[]>([
+      {
+        id: 'log_0',
+        timestamp:
+          new Date().toLocaleTimeString(
+            isAr ? 'ar-SA' : 'en-US'
+          ),
+        type: 'info',
+        message:
+          isAr
+            ? 'تم تشغيل محرك NATAN بنجاح. جاهز لرصد شفتات نينجا السعودية.'
+            : 'NATAN engine started successfully. Ready to monitor Ninja Saudi shifts.',
+      },
+    ]);
+
+  const [stats, setStats] =
+    useState<PerformanceStats>({
+      totalScans: 412,
+      shiftsDetected: 1,
+      shiftsCaptured: 0,
+      shiftsMissed: 0,
+      avgResponseTimeMs: 0,
+      fastestResponseTimeMs: 0,
+      successRate: 100,
+    });
+
+  /*
+   * ============================================================
+   * WHATSAPP-STYLE NOTIFICATION
+   * ============================================================
+   */
+
+  const [whatsappBanner, setWhatsappBanner] =
+    useState<{
+      show: boolean;
+      title: string;
+      body: string;
+      time: string;
+      shiftCode: string;
+    } | null>(null);
+
+  /*
+   * ============================================================
+   * LOGGING
+   * ============================================================
+   */
+
+  const addLog = (
+    type: LogEntry['type'],
+    message: string,
+    durationMs?: number
+  ) => {
+    const now = new Date();
+
+    const timeStr =
+      `${now.getHours().toString().padStart(2, '0')}:` +
+      `${now.getMinutes().toString().padStart(2, '0')}:` +
+      `${now.getSeconds().toString().padStart(2, '0')}.` +
+      `${now.getMilliseconds().toString().padStart(3, '0')}`;
+
+    const newEntry: LogEntry = {
+      id:
+        `log_${Date.now()}_` +
+        Math.random()
+          .toString(36)
+          .substring(2, 5),
+
+      timestamp: timeStr,
+      type,
+      message,
+      durationMs,
+    };
+
+    setLogs((prev) => [
+      newEntry,
+      ...prev.slice(0, 100),
+    ]);
+  };
+
+  /*
+   * ============================================================
+   * LOGOUT
+   * ============================================================
+   */
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem(
+        'natan_auth_session'
+      );
+    } catch {
+      // safe
+    }
+
+    setAuthSession(null);
+
+    setSettings((prev) => ({
+      ...prev,
+      monitoring: false,
+      autoBooking: false,
+    }));
+
+    setIsAutoSimulating(false);
+
+    setShowActivationModal(false);
+    setActivationCode('');
+    setActivationError('');
+
+    try {
+      void wakeLock.release();
+    } catch {
+      // safe
+    }
+
+    setShowAuthModal(true);
+
+    addLog(
+      'info',
+      isAr
+        ? 'تم تسجيل الخروج من NATAN وإيقاف الرصد والحجز الآلي.'
+        : 'Logged out of NATAN. Monitoring and automatic booking have been stopped.'
+    );
+  };
+
+  /*
+   * ============================================================
+   * SETTINGS
+   * ============================================================
+   */
+
+  const updateSettings = (
+    partial: Partial<BookingSettings>
+  ) => {
+    setSettings((prev) => ({
+      ...prev,
+      ...partial,
+    }));
+  };
+  /*
+   * ============================================================
+   * NINJA API → NATAN SHIFTS
+   * ============================================================
+   *
+   * يستقبل الشفتات التي تم جلبها من Ninja API
+   * ويضيفها إلى Radar داخل NATAN.
+   *
+   * ملاحظة:
+   * هذا لا ينفذ Booking على Ninja.
+   * الحجز الحقيقي ما زال منفصلاً.
+   */
+
+  const handleNinjaShiftsUpdated = (
+    ninjaShifts: Shift[]
+  ) => {
+    if (!Array.isArray(ninjaShifts)) {
+      return;
+    }
+
+    if (ninjaShifts.length === 0) {
+      addLog(
+        'info',
+        isAr
+          ? '📡 تم الاتصال بمصدر Ninja API، ولم يتم العثور على شفتات في النتيجة الحالية.'
+          : '📡 Ninja API responded successfully, but no shifts were returned.'
+      );
+
+      return;
+    }
+
+    setAvailableShifts((prev) => {
+      const existingById = new Map(
+        prev.map((shift) => [
+          String(shift.id),
+          shift,
+        ])
+      );
+
+      for (const shift of ninjaShifts) {
+        const id = String(shift.id);
+
+        if (!id) {
+          continue;
+        }
+
+        const previous = existingById.get(id);
+
+        existingById.set(
+          id,
+          {
+            ...(previous || {}),
+            ...shift,
+            id,
+            detectedAt:
+              previous?.detectedAt ||
+              Date.now(),
+          } as Shift
+        );
+      }
+
+      return Array.from(
+        existingById.values()
+      );
+    });
+
+    setStats((prev) => ({
+      ...prev,
+      totalScans:
+        prev.totalScans + 1,
+      shiftsDetected:
+        prev.shiftsDetected +
+        ninjaShifts.length,
+    }));
+
+    addLog(
+      'success',
+      isAr
+        ? `📡 تم جلب ${ninjaShifts.length} شفت من Ninja API وإضافتها إلى الرادار.`
+        : `📡 ${ninjaShifts.length} shifts fetched from Ninja API and added to the radar.`
+    );
+  };
+  /*
+   * ============================================================
+   * RANDOM SHIFT GENERATOR
+   * ============================================================
+   */
+
+  const generateRandomShift = (): Shift => {
+    const cityObj =
+      SAUDI_CITIES.find(
+        (c) =>
+          c.id === settings.selectedCity
+      ) || SAUDI_CITIES[0];
+
+    const district =
+      cityObj.districts[
+        Math.floor(
+          Math.random() *
+          cityObj.districts.length
+        )
+      ];
+
+    const day =
+      DAYS_OF_WEEK[
+        Math.floor(
+          Math.random() *
+          DAYS_OF_WEEK.length
+        )
+      ];
+
+    const duration =
+      Math.floor(Math.random() * 4) + 4;
+
+    const startHour =
+      Math.floor(Math.random() * 12) + 9;
+
+    const endHour =
+      (startHour + duration) % 24;
+
+    const isPeak =
+      Math.random() > 0.4;
+
+    const hourly =
+      isPeak
+        ? Math.floor(Math.random() * 8) + 26
+        : Math.floor(Math.random() * 6) + 20;
+
+    const total =
+      hourly * duration;
+
+    const prefix =
+      district.includes('HABOBA')
+        ? 'HAB001'
+        : district.includes('Shatie')
+        ? 'SHA001'
+        : district.includes('Dahran')
+        ? 'DHR001'
+        : district.includes('Amal')
+        ? 'MHA001'
+        : district.includes('King Fahad')
+        ? 'FAY001'
+        : district.includes('Shulah')
+        ? 'OMR001'
+        : district.includes('Almanar')
+        ? 'MAN001'
+        : district.includes('Orouba')
+        ? 'MND001'
+        : 'SWD001';
+
+    const code =
+      `DMM-${prefix}`;
+
+    const stateLabel:
+      'قادمة' | 'نشط' =
+      Math.random() > 0.4
+        ? 'قادمة'
+        : 'نشط';
+
+    const formatHour = (h: number) => {
+      const period =
+        h >= 12 && h < 24
+          ? 'م'
+          : 'ص';
+
+      const h12 =
+        h % 12 === 0
+          ? 12
+          : h % 12;
+
+      return (
+        `${h12.toString().padStart(2, '0')}:00 ${period}`
+      );
+    };
+
+    return {
+      id:
+        `shift_${Date.now()}_` +
+        Math.floor(Math.random() * 1000),
+
+      shiftCode: code,
+
+      city: cityObj.name,
+
+      district,
+
+      storeName: district,
+
+      storeNumber:
+        district.match(/#\d+/)?.[0] || '',
+
+      date:
+        new Date()
+          .toISOString()
+          .split('T')[0],
+
+      dayName:
+        `${day} (اليوم)`,
+
+      startTime:
+        formatHour(startHour),
+
+      endTime:
+        formatHour(endHour),
+
+      durationHours:
+        duration,
+
+      basePay:
+        total -
+        (isPeak ? 30 : 0),
+
+      bonusPay:
+        isPeak ? 30 : 0,
+
+      totalPay:
+        total,
+
+      hourlyRate:
+        hourly,
+
+      isPeak,
+
+      shiftStateLabel:
+        stateLabel,
+
+      status:
+        'available',
+
+      detectedAt:
+        Date.now(),
+    };
+  };
+
+  /*
+   * ============================================================
+   * INSTANT DROP
+   * ============================================================
+   */
+
+  const triggerInstantDrop = () => {
+    const newShift =
+      generateRandomShift();
+
+    setAvailableShifts(
+      (prev) => [
+        newShift,
+        ...prev,
+      ]
+    );
+
+    addLog(
+      'warning',
+      isAr
+        ? `⚡ رصد نزول شفت فلاشي جديد في [${
+            newShift.city
+          } - ${
+            newShift.district
+          }] بمبلغ ${
+            newShift.totalPay
+          } ر.س`
+        : `⚡ New flash shift detected in [${
+            newShift.city
+          } - ${
+            newShift.district
+          }] for ${
+            newShift.totalPay
+          } SAR`
+    );
+
+    haptics.vibrateTick();
+
+    if (settings.soundAlert) {
+      soundFX.playSpeedTick();
+    }
+  };
+
+  /*
+   * ============================================================
+   * MANUAL BOOKING
+   * ============================================================
+   */
+
+  const bookShiftManually = (
+    shiftId: string
+  ) => {
+    const target =
+      availableShifts.find(
+        (s) => s.id === shiftId
+      );
+
+    if (!target) {
+      return;
+    }
+
+    const conflict =
+      findConflictingShift(
+        target,
+        capturedShifts
+      );
+
+    if (conflict) {
+      addLog(
+        'warning',
+        isAr
+          ? `⚠️ تعارض في الوقت: لا يمكن حجز هذا الشفت لأن لديك شفت محجوز مسبقاً في نفس الفترة (${conflict.startTime} - ${conflict.endTime})`
+          : `⚠️ Time conflict: this shift cannot be booked because another booked shift overlaps (${conflict.startTime} - ${conflict.endTime})`
+      );
+
+      haptics.vibrateAlert();
+      soundFX.playSpeedTick();
+
+      return;
+    }
+
+    executeBooking(
+      target,
+      45
+    );
+  };
+
+  /*
+   * ============================================================
+   * DELETE AVAILABLE SHIFT
+   * ============================================================
+   */
+
+  const deleteAvailableShift = (
+    shiftId: string
+  ) => {
+    setAvailableShifts(
+      (prev) =>
+        prev.filter(
+          (s) => s.id !== shiftId
+        )
+    );
+
+    addLog(
+      'info',
+      isAr
+        ? '🗑️ تم حذف الشفت من قائمة الشفتات المتاحة بنجاح'
+        : '🗑️ Shift removed from the available shifts list.'
+    );
+  };
+
+  /*
+   * ============================================================
+   * PROTECTED BOOKING
+   * ============================================================
+   */
+
+  const executeBooking = (
+    shift: Shift,
+    customLatency?: number
+  ) => {
+    /*
+     * الحجز محمي بالتفعيل.
+     */
+    if (!isLicensed) {
+      openActivationModal();
+
+      addLog(
+        'error',
+        isAr
+          ? '🔐 هذه الميزة تتطلب تفعيل الحساب. يرجى إدخال كود التفعيل.'
+          : '🔐 This feature requires an activated account. Please enter the activation code.'
+      );
+
+      return;
+    }
+
+    const conflict =
+      findConflictingShift(
+        shift,
+        capturedShifts
+      );
+
+    if (conflict) {
+      addLog(
+        'warning',
+        isAr
+          ? `⚠️ تم إلغاء الحجز: تعارض في الوقت مع الشفت المحجوز سابقاً [${conflict.district}] (${conflict.startTime} - ${conflict.endTime})`
+          : `⚠️ Booking cancelled: time conflict with previously booked shift [${conflict.district}] (${conflict.startTime} - ${conflict.endTime})`
+      );
+
+      haptics.vibrateAlert();
+
+      return;
+    }
+
+    const jitter =
+      Math.floor(
+        Math.random() *
+        settings.humanJitterMs
+      );
+
+    const latency =
+      customLatency ??
+      (
+        settings.scanIntervalMs / 2 +
+        12 +
+        jitter
+      );
+
+    const updatedShift: Shift = {
+      ...shift,
+
+      status:
+        'booked',
+
+      bookedAt:
+        Date.now(),
+
+      responseTimeMs:
+        latency,
+    };
+
+    setAvailableShifts(
+      (prev) =>
+        prev.filter(
+          (s) => s.id !== shift.id
+        )
+    );
+
+    setCapturedShifts(
+      (prev) => [
+        updatedShift,
+        ...prev,
+      ]
+    );
+
+    setStats((prev) => {
+      const newCaptured =
+        prev.shiftsCaptured + 1;
+
+      const newAvg =
+        Math.round(
+          prev.avgResponseTimeMs === 0
+            ? latency
+            : (
+                prev.avgResponseTimeMs +
+                latency
+              ) / 2
+        );
+
+      const fastest =
+        prev.fastestResponseTimeMs === 0
+          ? latency
+          : Math.min(
+              prev.fastestResponseTimeMs,
+              latency
+            );
+
+      return {
+        ...prev,
+
+        shiftsCaptured:
+          newCaptured,
+
+        avgResponseTimeMs:
+          newAvg,
+
+        fastestResponseTimeMs:
+          fastest,
+      };
+    });
+
+    addLog(
+      'success',
+      isAr
+        ? `🎉 تم تثبيت وحجز الشفت بنجاح: [${
+            shift.city
+          } - ${
+            shift.district
+          }] | ${
+            shift.totalPay
+          } ر.س (${
+            shift.startTime
+          }-${
+            shift.endTime
+          })`
+        : `🎉 Shift booked successfully: [${
+            shift.city
+          } - ${
+            shift.district
+          }] | ${
+            shift.totalPay
+          } SAR (${
+            shift.startTime
+          }-${
+            shift.endTime
+          })`,
+      latency
+    );
+
+    if (settings.vibrationAlert) {
+      haptics.vibrateCapture();
+    }
+
+    if (settings.soundAlert) {
+      soundFX.playSuccess();
+    }
+
+    setWhatsappBanner({
+      show: true,
+
+      title:
+        isAr
+          ? '🎯 NATAN • تم حجز شفت نينجا الآن!'
+          : '🎯 NATAN • Ninja shift booked!',
+
+      body:
+        isAr
+          ? `${
+              shift.district
+            } (${
+              shift.shiftCode || 'DMM'
+            }) • الأجر: ${
+              shift.totalPay
+            } ر.س • ${
+              shift.startTime
+            } إلى ${
+              shift.endTime
+            }`
+          : `${
+              shift.district
+            } (${
+              shift.shiftCode || 'DMM'
+            }) • Pay: ${
+              shift.totalPay
+            } SAR • ${
+              shift.startTime
+            } to ${
+              shift.endTime
+            }`,
+
+      time:
+        isAr
+          ? 'الآن'
+          : 'Now',
+
+      shiftCode:
+        shift.shiftCode ||
+        'DMM-001',
+    });
+
+    setTimeout(() => {
+      setWhatsappBanner(
+        (cur) =>
+          cur
+            ? {
+                ...cur,
+                show: false,
+              }
+            : null
+      );
+    }, 5500);
+
+    try {
+      confetti({
+        particleCount: 50,
+        spread: 60,
+        origin: {
+          y: 0.6,
+        },
+      });
+    } catch {
+      // safe
+    }
+  };
+
+  /*
+   * ============================================================
+   * AUTOMATIC MONITORING
+   * ============================================================
+   */
+
+  useEffect(() => {
+    if (
+      !isLicensed ||
+      !settings.monitoring ||
+      !settings.autoBooking
+    ) {
+      return;
+    }
+
+    if (
+      availableShifts.length === 0
+    ) {
+      return;
+    }
+
+    const match =
+      availableShifts.find((s) => {
+        const hasHashtags =
+          !!(
+            settings.branchKeywordNumbers &&
+            settings.branchKeywordNumbers.length > 0
+          );
+
+        const matchesHashtag =
+          hasHashtags
+            ? settings.branchKeywordNumbers!.some(
+                (tag) =>
+                  s.district.includes(tag) ||
+                  (
+                    s.storeNumber &&
+                    s.storeNumber.includes(tag)
+                  )
+              )
+            : false;
+
+        const matchesDistrict =
+          settings.selectedDistricts.length > 0
+            ? settings.selectedDistricts.some(
+                (d) =>
+                  s.district.includes(d) ||
+                  d.includes(s.district)
+              )
+            : true;
+
+        if (
+          hasHashtags &&
+          !matchesHashtag &&
+          !matchesDistrict
+        ) {
+          return false;
+        }
+
+        if (
+          !hasHashtags &&
+          !matchesDistrict
+        ) {
+          return false;
+        }
+
+        if (
+          settings.selectedDays.length > 0 &&
+          !settings.selectedDays.includes(
+            s.dayName
+          )
+        ) {
+          return false;
+        }
+
+        if (
+          s.durationHours <
+            settings.minDurationHours ||
+          s.durationHours >
+            settings.maxDurationHours
+        ) {
+          return false;
+        }
+
+        if (
+          settings.onlyPeakHours &&
+          !s.isPeak
+        ) {
+          return false;
+        }
+
+        const conflict =
+          findConflictingShift(
+            s,
+            capturedShifts
+          );
+
+        if (conflict) {
+          return false;
+        }
+
+        return true;
+      });
+
+    if (!match) {
+      return;
+    }
+
+    const timer =
+      setTimeout(() => {
+        executeBooking(
+          match
+        );
+      }, Math.max(
+        20,
+        settings.scanIntervalMs / 2
+      ));
+
+    return () =>
+      clearTimeout(timer);
+
+  }, [
+    availableShifts,
+    settings,
+    isLicensed,
+    capturedShifts,
+  ]);
+
+  /*
+   * ============================================================
+   * VOLUME KEYS
+   * ============================================================
+   */
+
+  useEffect(() => {
+    if (
+      !settings.volumeKeysControl
+    ) {
+      return;
+    }
+
+    const handleKeyDown =
+      (e: KeyboardEvent) => {
+        if (
+          e.key ===
+            'AudioVolumeUp' ||
+          (
+            e.altKey &&
+            e.key === 'ArrowUp'
+          )
+        ) {
+          e.preventDefault();
+
+          setIsCodeModalOpen(
+            true
+          );
+
+          addLog(
+            'info',
+            isAr
+              ? '🎧 [مفتاح رفع الصوت]: تم فتح لوحة الأكواد والتعليمات'
+              : '🎧 [Volume Up]: Code and instructions panel opened.'
+          );
+
+        } else if (
+          e.key ===
+            'AudioVolumeDown' ||
+          (
+            e.altKey &&
+            e.key === 'ArrowDown'
+          )
+        ) {
+          e.preventDefault();
+
+          setSettings((prev) => {
+            const next =
+              !prev.autoRefresh;
+
+            addLog(
+              'info',
+              isAr
+                ? `🎧 [مفتاح خفض الصوت]: ${
+                    next
+                      ? 'تم تفعيل'
+                      : 'تم إيقاف'
+                  } السحب التلقائي (Auto-Refresh)`
+                : `🎧 [Volume Down]: Auto-refresh ${
+                    next
+                      ? 'enabled'
+                      : 'disabled'
+                  }.`
+            );
+
+            return {
+              ...prev,
+              autoRefresh:
+                next,
+            };
+          });
+        }
+      };
+
+    window.addEventListener(
+      'keydown',
+      handleKeyDown
+    );
+
+    return () =>
+      window.removeEventListener(
+        'keydown',
+        handleKeyDown
+      );
+
+  }, [
+    settings.volumeKeysControl,
+    isAr,
+  ]);
+
+  /*
+   * ============================================================
+   * WAKE LOCK
+   * ============================================================
+   */
+
+  useEffect(() => {
+    if (
+      settings.monitoring &&
+      settings.wakeLockEnabled &&
+      isAuthenticated
+    ) {
+      wakeLock
+        .request()
+        .then((success) => {
+          if (success) {
+            addLog(
+              'info',
+              isAr
+                ? '💡 [WakeLock نشط] تم منع شاشة الهاتف من القفل التلقائي لضمان استمرار صيد الشفتات.'
+                : '💡 [WakeLock active] Automatic screen locking is prevented while monitoring.'
+            );
+          }
+        })
+        .catch(() => {});
+    } else {
+      wakeLock
+        .release()
+        .catch(() => {});
+    }
+
+    return () => {
+      wakeLock
+        .release()
+        .catch(() => {});
+    };
+
+  }, [
+    settings.monitoring,
+    settings.wakeLockEnabled,
+    isAuthenticated,
+    isAr,
+  ]);
+
+  /*
+   * ============================================================
+   * SCREEN SECURITY
+   * ============================================================
+   */
+
+  useEffect(() => {
+    if (
+      !settings.secureScreenMode
+    ) {
+      return;
+    }
+
+    const handleKeyDown =
+      (e: KeyboardEvent) => {
+        if (
+          e.key ===
+            'PrintScreen' ||
+          (
+            (e.ctrlKey ||
+              e.metaKey) &&
+            (
+              e.key.toLowerCase() ===
+                'p' ||
+              e.key.toLowerCase() ===
+                's'
+            )
+          )
+        ) {
+          e.preventDefault();
+
+          addLog(
+            'warning',
+            isAr
+              ? '🛡️ [حماية الشاشة] تم حظر محاولة التقاط الشاشة لحماية سرية حسابك والشفتات.'
+              : '🛡️ [Screen Security] A screenshot attempt was blocked to protect your account and shifts.'
+          );
+
+          if (
+            settings.soundAlert
+          ) {
+            soundFX.playSpeedTick();
+          }
+        }
+      };
+
+    window.addEventListener(
+      'keydown',
+      handleKeyDown
+    );
+
+    return () =>
+      window.removeEventListener(
+        'keydown',
+        handleKeyDown
+      );
+
+  }, [
+    settings.secureScreenMode,
+    settings.soundAlert,
+    isAr,
+  ]);
+
+  /*
+   * ============================================================
+   * BACKGROUND SIMULATION
+   * ============================================================
+   */
+
+  useEffect(() => {
+    if (
+      !isAutoSimulating
+    ) {
+      return;
+    }
+
+    const interval =
+      setInterval(() => {
+        if (
+          Math.random() >
+          0.35
+        ) {
+          const newShift =
+            generateRandomShift();
+
+          setAvailableShifts(
+            (prev) => [
+              newShift,
+              ...prev.slice(0, 4),
+            ]
+          );
+
+          addLog(
+            'info',
+            isAr
+              ? `📡 وصول تحديث شبكي: توفر شفت في [${newShift.district}]`
+              : `📡 Network update: shift available at [${newShift.district}]`
+          );
+        }
+      }, 14000);
+
+    return () =>
+      clearInterval(interval);
+
+  }, [
+    isAutoSimulating,
+    settings.selectedCity,
+    isAr,
+  ]);
+
+  /*
+   * ============================================================
+   * RENDER
+   * ============================================================
+   */
+
+  return (
+    <div
+      dir={isAr ? 'rtl' : 'ltr'}
+      lang={isAr ? 'ar' : 'en'}
+      className="
+        min-h-screen
+        bg-[#090a18]
+        text-slate-100
+        flex
+        flex-col
+        font-sans
+        selection:bg-purple-600
+        selection:text-white
+        relative
+        overflow-x-hidden
+      "
+    >
+
+      {/* Ambient Glow */}
+      <div
+        className="
+          absolute
+          top-0
+          left-1/2
+          -translate-x-1/2
+          w-[680px]
+          h-[280px]
+          bg-purple-600/10
+          blur-[120px]
+          pointer-events-none
+          rounded-full
+        "
+      />
+
+      {/* ======================================================
+          WHATSAPP BANNER
+          ====================================================== */}
+
+      {whatsappBanner &&
+        whatsappBanner.show && (
+          <div
+            className="
+              fixed
+              top-3
+              left-0
+              right-0
+              z-50
+              flex
+              justify-center
+              px-3
+              pointer-events-none
+              animate-in
+              slide-in-from-top-4
+              duration-300
+            "
+          >
+            <div
+              className="
+                w-full
+                max-w-md
+                bg-slate-900/95
+                text-white
+                rounded-2xl
+                p-3.5
+                shadow-2xl
+                border
+                border-purple-500/40
+                backdrop-blur-md
+                pointer-events-auto
+                flex
+                items-start
+                gap-3
+                ring-2
+                ring-purple-500/20
+              "
+            >
+              <NatanLogo
+                size="sm"
+                withGlow={true}
+              />
+
+              <div
+                className="
+                  flex-1
+                  min-w-0
+                "
+              >
+                <div
+                  className="
+                    flex
+                    items-center
+                    justify-between
+                    gap-1
+                  "
+                >
+                  <span
+                    className="
+                      text-xs
+                      font-black
+                      text-purple-300
+                      truncate
+                    "
+                  >
+                    {
+                      whatsappBanner.title
+                    }
+                  </span>
+
+                  <span
+                    className="
+                      text-[10px]
+                      text-slate-400
+                      shrink-0
+                      font-mono
+                    "
+                  >
+                    {
+                      whatsappBanner.time
+                    }
+                  </span>
+                </div>
+
+                <p
+                  className="
+                    text-xs
+                    text-slate-200
+                    font-bold
+                    mt-0.5
+                    leading-snug
+                  "
+                >
+                  {
+                    whatsappBanner.body
+                  }
+                </p>
+
+                <div
+                  className="
+                    flex
+                    items-center
+                    gap-2
+                    mt-1.5
+                    text-[10px]
+                    text-slate-400
+                  "
+                >
+                  <span
+                    className="
+                      px-1.5
+                      py-0.5
+                      rounded
+                      bg-purple-500/20
+                      text-purple-300
+                      font-mono
+                      font-bold
+                    "
+                  >
+                    ⚡ {isAr ? 'حجز فوري في الخلفية' : 'Instant background booking'}
+                  </span>
+
+                  <span>
+                    {isAr ? 'اضغط للإغلاق' : 'Tap to close'}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setWhatsappBanner(
+                    null
+                  )
+                }
+                className="
+                  text-slate-400
+                  hover:text-white
+                  p-1
+                  rounded-lg
+                  hover:bg-slate-800
+                  transition-colors
+                  cursor-pointer
+                "
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
+      {/* ======================================================
+          NAVBAR
+          ====================================================== */}
+
+      <Navbar
+        settings={settings}
+        onUpdateSettings={
+          updateSettings
+        }
+        onOpenCodeModal={() =>
+          setIsCodeModalOpen(true)
+        }
+        onOpenAiAdvisor={() =>
+          setIsAiAdvisorOpen(true)
+        }
+        onOpenWhatsApp={() =>
+          setIsWhatsAppModalOpen(true)
+        }
+        onTriggerTestDrop={
+          triggerInstantDrop
+        }
+        totalCaptured={
+          capturedShifts.length
+        }
+        authSession={
+          authSession
+        }
+
+        /*
+         * Profile / License behavior:
+         *
+         * غير مفعّل → افتح نافذة التفعيل.
+         * مفعّل → لا تفتح أي نافذة.
+         *
+         * سيتم التأكد من أن Navbar يستخدم هذا callback
+         * للـ Profile في الملف التالي.
+         */
+        onOpenLicense={() => {
+          if (!isLicensed) {
+            openActivationModal();
+          }
+        }}
+
+        onLogout={
+          handleLogout
+        }
+      />
+
+      {/* ======================================================
+          MAIN
+          ====================================================== */}
+
+      <main
+        className="
+          flex-1
+          max-w-7xl
+          w-full
+          mx-auto
+          px-3
+          sm:px-4
+          lg:px-8
+          py-3
+          sm:py-6
+          space-y-4
+          sm:space-y-6
+          relative
+          z-10
+        "
+      >
+
+        {/* Quick View */}
+        <div
+          className="
+            flex
+            flex-col
+            sm:flex-row
+            items-stretch
+            sm:items-center
+            justify-between
+            gap-2.5
+            sm:gap-3
+            pb-2.5
+            sm:pb-3
+            border-b
+            border-slate-800/80
+          "
+        >
+
+          <div
+            className="
+              grid
+              grid-cols-2
+              sm:flex
+              sm:items-center
+              gap-1.5
+              sm:gap-2
+            "
+          >
+
+            <button
+              onClick={() =>
+                setActiveView(
+                  'radar'
+                )
+              }
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-[11px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
+                activeView === 'radar'
+                  ? 'bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/25 border border-purple-400/40'
+                  : 'bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800/90 border border-slate-800'
+              }`}
+            >
+              <Radio
+                className="
+                  w-3.5
+                  h-3.5
+                  sm:w-4
+                  sm:h-4
+                  text-purple-300
+                  shrink-0
+                "
+              />
+
+              <span className="truncate">
+                {t.tabRadar}
+              </span>
+            </button>
+
+            <button
+              onClick={() =>
+                setActiveView(
+                  'criteria'
+                )
+              }
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-[11px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
+                activeView === 'criteria'
+                  ? 'bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/25 border border-purple-400/40'
+                  : 'bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800/90 border border-slate-800'
+              }`}
+            >
+              <SlidersHorizontal
+                className="
+                  w-3.5
+                  h-3.5
+                  sm:w-4
+                  sm:h-4
+                  text-purple-300
+                  shrink-0
+                "
+              />
+
+              <span className="truncate">
+                {t.tabCriteria}
+              </span>
+            </button>
+
+            <button
+              onClick={() =>
+                setActiveView(
+                  'engine'
+                )
+              }
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-[11px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
+                activeView === 'engine'
+                  ? 'bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/25 border border-purple-400/40'
+                  : 'bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800/90 border border-slate-800'
+              }`}
+            >
+              <Zap
+                className="
+                  w-3.5
+                  h-3.5
+                  sm:w-4
+                  sm:h-4
+                  text-amber-400
+                  shrink-0
+                "
+              />
+
+              <span className="truncate">
+                {t.tabEngine} (
+                {
+                  settings.scanIntervalMs
+                }
+                ms)
+              </span>
+            </button>
+
+            <button
+              onClick={() =>
+                setActiveView(
+                  'api_bot'
+                )
+              }
+              className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-[11px] sm:text-xs font-black transition-all cursor-pointer relative active:scale-95 ${
+                activeView === 'api_bot'
+                  ? 'bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/30 border border-purple-400/50'
+                  : 'bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800/90 border border-purple-500/30'
+              }`}
+            >
+              <Server
+                className="
+                  w-3.5
+                  h-3.5
+                  sm:w-4
+                  sm:h-4
+                  text-purple-400
+                  shrink-0
+                "
+              />
+
+              <span className="truncate">
+                {t.tabApiBot}
+              </span>
+
+              <span
+                className="
+                  hidden
+                  sm:inline-block
+                  text-[10px]
+                  bg-purple-500/30
+                  text-purple-200
+                  px-1.5
+                  py-0.2
+                  rounded-full
+                  border
+                  border-purple-400/40
+                  font-mono
+                  font-bold
+                "
+              >
+                {t.directApiBadge}
+              </span>
+            </button>
+          </div>
+
+          {/* Engine status */}
+          <div
+            className="
+              flex
+              items-center
+              justify-between
+              sm:justify-end
+              gap-2
+              sm:gap-3
+              text-xs
+              bg-slate-900/80
+              px-3
+              py-1.5
+              rounded-xl
+              border
+              border-slate-800
+            "
+          >
+
+            {/* License */}
+            <button
+              onClick={() => {
+                if (!isLicensed) {
+                  openActivationModal();
+                }
+              }}
+              className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] sm:text-[11px] font-bold border transition-all cursor-pointer ${
+                isLicensed
+                  ? 'bg-purple-950/40 text-purple-300 border-purple-500/30'
+                  : 'bg-rose-950/50 text-rose-300 border-rose-500/40 animate-pulse'
+              }`}
+              title={
+                isLicensed
+                  ? (
+                      isAr
+                        ? 'الترخيص نشط'
+                        : 'License active'
+                    )
+                  : (
+                      isAr
+                        ? 'البرنامج غير مفعل - انقر للتفعيل'
+                        : 'Program is not activated - click to activate'
+                    )
+              }
+            >
+              {isLicensed ? (
+                <>
+                  <ShieldCheck
+                    className="
+                      w-3
+                      h-3
+                      text-emerald-400
+                    "
+                  />
+
+                  <span>
+                    {t.licensedAndEncrypted}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Lock
+                    className="
+                      w-3
+                      h-3
+                      text-rose-400
+                    "
+                  />
+
+                  <span>
+                    {t.unlicensedLocked}
+                  </span>
+                </>
+              )}
+            </button>
+
+            <div
+              className="
+                h-3
+                w-px
+                bg-slate-800
+              "
+            />
+
+            {/* Auto booking */}
+            <div
+              className="
+                flex
+                items-center
+                gap-1.5
+              "
+            >
+              <span
+                className="
+                  text-slate-400
+                  font-medium
+                  text-[11px]
+                  sm:text-xs
+                "
+              >
+                {t.autoBookingLabel}
+              </span>
+
+              <span
+                className={`px-2 py-0.5 rounded-full font-black text-[10px] sm:text-[11px] ${
+                  settings.autoBooking &&
+                  isLicensed
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    : 'bg-slate-800 text-slate-400'
+                }`}
+              >
+                {
+                  settings.autoBooking &&
+                  isLicensed
+                    ? t.autoBookingActive
+                    : t.autoBookingManual
+                }
+              </span>
+            </div>
+
+            <div
+              className="
+                h-3
+                w-px
+                bg-slate-800
+              "
+            />
+
+            {/* Monitoring */}
+            <span
+              className="
+                flex
+                items-center
+                gap-1.5
+                text-slate-300
+                font-medium
+                text-[11px]
+                sm:text-xs
+              "
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  settings.monitoring &&
+                  isLicensed
+                    ? 'bg-emerald-400 animate-ping'
+                    : 'bg-slate-600'
+                }`}
+              />
+
+              {
+                settings.monitoring &&
+                isLicensed
+                  ? t.screenWatching
+                  : t.monitoringStopped
+              }
+            </span>
+          </div>
+        </div>
+
+        {/* ====================================================
+            RADAR
+            ==================================================== */}
+
+        {activeView === 'radar' && (
+          <div
+            className="
+              grid
+              grid-cols-1
+              lg:grid-cols-12
+              gap-6
+            "
+          >
+            <div
+              className="
+                lg:col-span-7
+                space-y-6
+              "
+            >
+              <SimulatorRadar
+                settings={settings}
+                availableShifts={availableShifts}
+                capturedShifts={capturedShifts}
+                stats={stats}
+                onTriggerInstantDrop={
+                  triggerInstantDrop
+                }
+                onBookShiftManually={
+                  bookShiftManually
+                }
+                onDeleteShift={
+                  deleteAvailableShift
+                }
+                isAutoSimulating={
+                  isAutoSimulating
+                }
+                onToggleAutoSimulating={() =>
+                  setIsAutoSimulating(
+                    !isAutoSimulating
+                  )
+                }
+              />
+            </div>
+
+            <div
+              className="
+                lg:col-span-5
+                space-y-6
+              "
+            >
+              <SpeedEngineConfig
+                settings={settings}
+                onUpdateSettings={
+                  updateSettings
+                }
+              />
+
+              <LogViewer
+                logs={logs}
+                onClearLogs={() =>
+                  setLogs([])
+                }
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ====================================================
+            CRITERIA
+            ==================================================== */}
+
+        {activeView === 'criteria' && (
+          <div
+            className="
+              grid
+              grid-cols-1
+              lg:grid-cols-12
+              gap-6
+            "
+          >
+            <div
+              className="
+                lg:col-span-8
+              "
+            >
+              <CriteriaEditor
+                settings={settings}
+                onUpdateSettings={
+                  updateSettings
+                }
+              />
+            </div>
+
+            <div
+              className="
+                lg:col-span-4
+                space-y-6
+              "
+            >
+              <div
+                className="
+                  bg-slate-900/80
+                  border
+                  border-slate-800
+                  rounded-2xl
+                  p-5
+                  space-y-4
+                "
+              >
+                <div
+                  className="
+                    flex
+                    items-center
+                    gap-2.5
+                    text-amber-400
+                    font-bold
+                    text-sm
+                  "
+                >
+                  <Flame
+                    className="
+                      w-5
+                      h-5
+                    "
+                  />
+
+                  <span>
+                    {isAr
+                      ? 'تأثير الفلاتر على سرعة مسك الشفت'
+                      : 'How filters affect shift capture speed'}
+                  </span>
+                </div>
+
+                <p
+                  className="
+                    text-xs
+                    text-slate-300
+                    leading-relaxed
+                  "
+                >
+                  {isAr
+                    ? (
+                      <>
+                        تحديد عدد قليل جداً من الفروع قد يقلل فرصك. للحصول على أعلى عدد شفتات، حدد على الأقل <strong>3 إلى 5 مستودعات</strong> قريبة منك. بمجرد حجز شفت في وقت محدد، يقوم النظام تلقائياً باستبعاد الشفتات الأخرى المتداخلة.
+                      </>
+                    )
+                    : (
+                      <>
+                        Selecting too few branches may reduce available opportunities. For more shifts, consider selecting <strong>3 to 5 nearby branches</strong>. Once a shift is booked, overlapping shifts are automatically excluded.
+                      </>
+                    )}
+                </p>
+
+                <div
+                  className="
+                    pt-2
+                    border-t
+                    border-slate-800
+                    flex
+                    items-center
+                    justify-between
+                    text-xs
+                  "
+                >
+                  <span
+                    className="
+                      text-slate-400
+                    "
+                  >
+                    {isAr
+                      ? 'الفروع المختارة:'
+                      : 'Selected branches:'}
+                  </span>
+
+                  <span
+                    className="
+                      font-bold
+                      text-sky-400
+                    "
+                  >
+                    {
+                      settings.selectedDistricts
+                        .length === 0
+                        ? (
+                            isAr
+                              ? 'الكل متاح'
+                              : 'All available'
+                          )
+                        : isAr
+                          ? `${settings.selectedDistricts.length} فرع`
+                          : `${settings.selectedDistricts.length} branches`
+                    }
+                  </span>
+                </div>
+              </div>
+
+              <LogViewer
+                logs={logs}
+                onClearLogs={() =>
+                  setLogs([])
+                }
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ====================================================
+            ENGINE
+            ==================================================== */}
+
+        {activeView === 'engine' && (
+          <div
+            className="
+              grid
+              grid-cols-1
+              lg:grid-cols-12
+              gap-6
+            "
+          >
+            <div
+              className="
+                lg:col-span-7
+              "
+            >
+              <SpeedEngineConfig
+                settings={settings}
+                onUpdateSettings={
+                  updateSettings
+                }
+              />
+            </div>
+
+            <div
+              className="
+                lg:col-span-5
+                space-y-6
+              "
+            >
+              <LogViewer
+                logs={logs}
+                onClearLogs={() =>
+                  setLogs([])
+                }
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ====================================================
+            API BOT
+            ==================================================== */}
+
+                {activeView === 'api_bot' && (
+          <DirectApiBot
+            settings={settings}
+            onUpdateSettings={
+              updateSettings
+            }
+
+            onBookShift={
+              bookShiftManually
+            }
+
+            onTriggerInstantDrop={
+              triggerInstantDrop
+            }
+
+            onAddLog={
+              addLog
+            }
+
+            onShiftsUpdated={
+              handleNinjaShiftsUpdated
+            }
+          />
+        )}
+      </main>
+
+      {/* ======================================================
+          FOOTER / WHATSAPP SUPPORT
+          ====================================================== */}
+
+      <footer
+        className="
+          border-t
+          border-slate-800/80
+          bg-gradient-to-b
+          from-slate-900/90
+          via-slate-950/95
+          to-slate-950
+          backdrop-blur-xl
+          py-8
+          px-4
+          text-xs
+          text-slate-400
+          mt-10
+          relative
+          z-20
+        "
+      >
+        <div
+          className="
+            max-w-7xl
+            mx-auto
+            space-y-6
+          "
+        >
+          <div
+            className="
+              p-4
+              sm:p-6
+              rounded-2xl
+              bg-gradient-to-r
+              from-emerald-950/30
+              via-slate-900/80
+              to-purple-950/20
+              border
+              border-emerald-500/25
+              shadow-xl
+              shadow-emerald-950/20
+              flex
+              flex-col
+              md:flex-row
+              items-center
+              justify-between
+              gap-5
+            "
+          >
+            <div
+              className="
+                flex
+                items-center
+                gap-3.5
+                text-right
+              "
+            >
+              <div
+                className="
+                  w-12
+                  h-12
+                  rounded-2xl
+                  bg-emerald-500/15
+                  border
+                  border-emerald-500/30
+                  flex
+                  items-center
+                  justify-center
+                  text-emerald-400
+                  shadow-inner
+                  shadow-emerald-500/20
+                  shrink-0
+                "
+              >
+                <MessageCircle
+                  className="
+                    w-6
+                    h-6
+                    fill-emerald-400/20
+                    animate-pulse
+                  "
+                />
+              </div>
+
+              <div>
+                <div
+                  className="
+                    flex
+                    items-center
+                    gap-2
+                  "
+                >
+                  <h3
+                    className="
+                      text-sm
+                      sm:text-base
+                      font-black
+                      text-white
+                    "
+                  >
+                    {isAr
+                      ? 'الدعم الفني المباشر عبر واتساب'
+                      : 'Live WhatsApp Support'}
+                  </h3>
+
+                  <span
+                    className="
+                      flex
+                      items-center
+                      gap-1
+                      text-[10px]
+                      font-bold
+                      px-2
+                      py-0.5
+                      rounded-full
+                      bg-emerald-500/20
+                      text-emerald-300
+                      border
+                      border-emerald-500/30
+                    "
+                  >
+                    <span
+                      className="
+                        w-1.5
+                        h-1.5
+                        rounded-full
+                        bg-emerald-400
+                        animate-ping
+                      "
+                    />
+
+                    {isAr
+                      ? 'متواجدون الآن'
+                      : 'Online now'}
+                  </span>
+                </div>
+
+                <p
+                  className="
+                    text-[11px]
+                    sm:text-xs
+                    text-slate-400
+                    mt-0.5
+                  "
+                >
+                  {isAr
+                    ? 'تواصل فوري للمساعدة في تفعيل الحسابات وضبط NATAN'
+                    : 'Instant support for account activation and NATAN setup'}
+                </p>
+              </div>
+            </div>
+
+            <div
+              className="
+                flex
+                items-center
+                gap-3
+              "
+            >
+              <a
+                href="https://wa.me/97333314353"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="
+                  group
+                  relative
+                  flex
+                  items-center
+                  justify-center
+                  w-12
+                  h-12
+                  rounded-2xl
+                  bg-emerald-600
+                  hover:bg-emerald-500
+                  text-white
+                  transition-all
+                  shadow-lg
+                  shadow-emerald-600/30
+                  hover:shadow-emerald-500/50
+                  hover:scale-105
+                  active:scale-95
+                  cursor-pointer
+                  ring-2
+                  ring-emerald-400/40
+                "
+                title={
+                  isAr
+                    ? 'محادثة واتساب - الدعم الفني'
+                    : 'WhatsApp technical support'
+                }
+                aria-label="WhatsApp support"
+              >
+                <MessageCircle
+                  className="
+                    w-6
+                    h-6
+                    fill-white
+                  "
+                />
+
+                <span
+                  className="
+                    absolute
+                    -top-1
+                    -right-1
+                    flex
+                    h-3
+                    w-3
+                  "
+                >
+                  <span
+                    className="
+                      animate-ping
+                      absolute
+                      inline-flex
+                      h-full
+                      w-full
+                      rounded-full
+                      bg-emerald-300
+                      opacity-75
+                    "
+                  />
+
+                  <span
+                    className="
+                      relative
+                      inline-flex
+                      rounded-full
+                      h-3
+                      w-3
+                      bg-emerald-400
+                    "
+                  />
+                </span>
+              </a>
+
+              <a
+                href="https://wa.me/97333269372"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="
+                  group
+                  flex
+                  items-center
+                  justify-center
+                  w-12
+                  h-12
+                  rounded-2xl
+                  bg-slate-800/90
+                  hover:bg-slate-800
+                  text-emerald-400
+                  hover:text-white
+                  border
+                  border-emerald-500/30
+                  hover:border-emerald-500/60
+                  transition-all
+                  shadow-md
+                  hover:scale-105
+                  active:scale-95
+                  cursor-pointer
+                "
+                title={
+                  isAr
+                    ? 'محادثة واتساب - خط الدعم الثاني'
+                    : 'WhatsApp support line 2'
+                }
+                aria-label="WhatsApp support line 2"
+              >
+                <MessageCircle
+                  className="
+                    w-6
+                    h-6
+                  "
+                />
+              </a>
+            </div>
+          </div>
+
+          <div
+            className="
+              flex
+              flex-col
+              sm:flex-row
+              items-center
+              justify-between
+              gap-3
+              text-slate-500
+              text-[11px]
+              pt-2
+              border-t
+              border-slate-800/60
+            "
+          >
+            <div
+              className="
+                flex
+                items-center
+                gap-2
+              "
+            >
+              <span
+                className="
+                  font-bold
+                  text-slate-300
+                "
+              >
+                NATAN v3.5
+              </span>
+
+              <span>•</span>
+
+              <span>
+                {isAr
+                  ? 'منظومة شفتات نينجا'
+                  : 'Ninja Shift System'}
+              </span>
+            </div>
+
+            <span>
+              {isAr
+                ? 'خدمة العملاء والدعم الفني متاحة عبر قنوات واتساب'
+                : 'Customer and technical support is available through WhatsApp'}
+            </span>
+          </div>
+        </div>
+      </footer>
+
+      {/* ======================================================
+          CODE MODAL
+          ====================================================== */}
+
+      <CodeExportModal
+        isOpen={
+          isCodeModalOpen
+        }
+        onClose={() =>
+          setIsCodeModalOpen(
+            false
+          )
+        }
+      />
+
+      {/* ======================================================
+          AI ADVISOR
+          ====================================================== */}
+
+      <AiAdvisor
+        isOpen={
+          isAiAdvisorOpen
+        }
+        onClose={() =>
+          setIsAiAdvisorOpen(
+            false
+          )
+        }
+        onApplyPreset={(
+          preset
+        ) => {
+          updateSettings(
+            preset
+          );
+
+          addLog(
+            'info',
+            isAr
+              ? 'تم تطبيق إعدادات الاستراتيجية الموصى بها من المستشار الذكي'
+              : 'Recommended strategy settings applied.'
+          );
+        }}
+      />
+
+      {/* ======================================================
+          ACTIVATION MODAL
+          ====================================================== */}
+
+      {showActivationModal && (
+        <div
+          className="
+            fixed
+            inset-0
+            z-[100]
+            flex
+            items-center
+            justify-center
+            bg-black/70
+            backdrop-blur-sm
+            p-4
+          "
+          dir={isAr ? 'rtl' : 'ltr'}
+        >
+          <div
+            className="
+              w-full
+              max-w-md
+              rounded-3xl
+              border
+              border-purple-500/30
+              bg-slate-900
+              p-6
+              shadow-2xl
+            "
+          >
+            <div
+              className="
+                mb-5
+                flex
+                items-center
+                gap-3
+              "
+            >
+              <NatanLogo
+                size="sm"
+                withGlow={true}
+              />
+
+              <div>
+                <h2
+                  className="
+                    text-lg
+                    font-bold
+                    text-white
+                  "
+                >
+                  {isAr
+                    ? '🔐 تفعيل NATAN'
+                    : '🔐 Activate NATAN'}
+                </h2>
+
+                <p
+                  className="
+                    mt-1
+                    text-sm
+                    text-slate-400
+                  "
+                >
+                  {isAr
+                    ? 'أدخل كود التفعيل لفتح الميزات المحمية.'
+                    : 'Enter your activation code to unlock protected features.'}
+                </p>
+              </div>
+            </div>
+
+            <input
+              type="text"
+              value={
+                activationCode
+              }
+              onChange={(e) => {
+                setActivationCode(
+                  e.target.value
+                    .toUpperCase()
+                );
+
+                setActivationError(
+                  ''
+                );
+              }}
+              placeholder="NATAN-XXXX-XXXX"
+              className="
+                w-full
+                rounded-2xl
+                border
+                border-slate-700
+                bg-slate-950
+                px-4
+                py-3
+                text-center
+                font-mono
+                text-lg
+                tracking-widest
+                text-white
+                outline-none
+                transition
+                focus:border-purple-500
+              "
+              autoCapitalize="characters"
+              autoComplete="off"
+              disabled={
+                activationLoading
+              }
+            />
+
+            {activationError && (
+              <div
+                className="
+                  mt-3
+                  rounded-xl
+                  border
+                  border-red-500/30
+                  bg-red-500/10
+                  px-3
+                  py-2
+                  text-sm
+                  text-red-300
+                "
+              >
+                {
+                  activationError
+                }
+              </div>
+            )}
+
+            <div
+              className="
+                mt-5
+                flex
+                gap-3
+              "
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    activationLoading
+                  ) {
+                    return;
+                  }
+
+                  setShowActivationModal(
+                    false
+                  );
+
+                  setActivationError(
+                    ''
+                  );
+
+                  setActivationCode(
+                    ''
+                  );
+                }}
+                disabled={
+                  activationLoading
+                }
+                className="
+                  flex-1
+                  rounded-2xl
+                  border
+                  border-slate-700
+                  bg-slate-800
+                  px-4
+                  py-3
+                  font-semibold
+                  text-slate-300
+                  transition
+                  hover:bg-slate-700
+                  disabled:opacity-50
+                "
+              >
+                {isAr
+                  ? 'إغلاق'
+                  : 'Close'}
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  handleProtectedActivation
+                }
+                disabled={
+                  activationLoading ||
+                  !activationCode.trim()
+                }
+                className="
+                  flex-1
+                  rounded-2xl
+                  bg-purple-600
+                  px-4
+                  py-3
+                  font-bold
+                  text-white
+                  transition
+                  hover:bg-purple-500
+                  disabled:cursor-not-allowed
+                  disabled:opacity-50
+                "
+              >
+                {
+                  activationLoading
+                    ? isAr
+                      ? 'جاري التفعيل...'
+                      : 'Activating...'
+                    : isAr
+                      ? 'تفعيل الحساب'
+                      : 'Activate Account'
+                }
+              </button>
+            </div>
+
+            <div
+              className="
+                mt-5
+                border-t
+                border-slate-800
+                pt-4
+              "
+            >
+              <p
+                className="
+                  mb-3
+                  text-center
+                  text-xs
+                  text-slate-500
+                "
+              >
+                {isAr
+                  ? 'تحتاج إلى كود تفعيل؟ تواصل مع الدعم الفني'
+                  : 'Need an activation code? Contact technical support.'}
+              </p>
+
+              <div
+                className="
+                  flex
+                  gap-3
+                "
+              >
+                <a
+                  href="https://wa.me/97333314353"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="
+                    flex
+                    flex-1
+                    items-center
+                    justify-center
+                    gap-2
+                    rounded-2xl
+                    border
+                    border-emerald-500/30
+                    bg-emerald-500/10
+                    px-3
+                    py-3
+                    text-sm
+                    font-semibold
+                    text-emerald-400
+                    transition
+                    hover:bg-emerald-500/20
+                  "
+                >
+                  <MessageCircle
+                    className="
+                      h-5
+                      w-5
+                    "
+                  />
+
+                  {isAr ? 'الدعم 1' : 'Support 1'}
+                </a>
+
+                <a
+                  href="https://wa.me/97333269372"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="
+                    flex
+                    flex-1
+                    items-center
+                    justify-center
+                    gap-2
+                    rounded-2xl
+                    border
+                    border-emerald-500/30
+                    bg-emerald-500/10
+                    px-3
+                    py-3
+                    text-sm
+                    font-semibold
+                    text-emerald-400
+                    transition
+                    hover:bg-emerald-500/20
+                  "
+                >
+                  <MessageCircle
+                    className="
+                      h-5
+                      w-5
+                    "
+                  />
+
+                  {isAr ? 'الدعم 2' : 'Support 2'}
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================
+          AUTH MODAL
+          ====================================================== */}
+
+      {showAuthModal && (
+        <AuthModal
+          currentSession={
+            authSession
+          }
+
+          onAuthenticate={
+            handleAuthSuccess
+          }
+
+          onOpenWhatsApp={() =>
+            setIsWhatsAppModalOpen(
+              true
+            )
+          }
+
+          onClose={
+            isAuthenticated
+              ? () =>
+                  setShowAuthModal(
+                    false
+                  )
+              : undefined
+          }
+
+          initialTab="login"
+        />
+      )}
+
+      {/* ======================================================
+          WHATSAPP SUPPORT MODAL
+          ====================================================== */}
+
+      {isWhatsAppModalOpen && (
+        <WhatsAppSupport
+          isOpen={
+            isWhatsAppModalOpen
+          }
+          onClose={() =>
+            setIsWhatsAppModalOpen(
+              false
+            )
+          }
+        />
+      )}
+
+    </div>
+  );
+}

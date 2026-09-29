@@ -1,0 +1,8 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NATAN</string>
+    <string name="title_activity_main">NATAN</string>
+    <string name="package_name">com.natan.smart</string>
+    <string name="custom_url_scheme">com.natan.smart</string>
+    <string name="natan_accessibility_description">NATAN Automation Service</string>
+</resources>

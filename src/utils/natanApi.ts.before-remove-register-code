@@ -1,0 +1,758 @@
+﻿import { AppAuthSession } from '../types';
+
+// ============================================================
+// NATAN API CONFIG
+// ============================================================
+
+const API_BASE_URL =
+  (import.meta.env.VITE_NATAN_API_URL as string | undefined)
+    ?.replace(/\/+$/, '') ||
+  'http://192.168.43.80:3001';
+
+// ============================================================
+// TYPES
+// ============================================================
+
+type ApiResponse<T = any> = {
+  success?: boolean;
+  message?: string;
+  error?: string;
+  token?: string;
+  user?: any;
+  data?: T;
+  plan?: any;
+  expiresAt?: string;
+  requiresActivation?: boolean;
+  alreadyActivated?: boolean;
+  expired?: boolean;
+  userId?: string;
+  username?: string;
+  email?: string | null;
+  phone?: string | null;
+  [key: string]: any;
+};
+
+// ============================================================
+// SPECIAL AUTH ERROR
+// ============================================================
+
+export class NatanActivationRequiredError extends Error {
+  requiresActivation = true;
+  userId?: string;
+  username?: string;
+  email?: string | null;
+  phone?: string | null;
+
+  constructor(result: ApiResponse) {
+    super(
+      result?.message ||
+        'يجب تفعيل الحساب قبل الدخول إلى NATAN.'
+    );
+
+    this.name = 'NatanActivationRequiredError';
+    this.userId = result?.userId;
+    this.username = result?.username;
+    this.email = result?.email;
+    this.phone = result?.phone;
+  }
+}
+
+// ============================================================
+// REQUEST
+// ============================================================
+
+async function request<T = ApiResponse>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const response = await fetch(
+    `${API_BASE_URL}${endpoint}`,
+    {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...(options.headers || {}),
+      },
+    }
+  );
+
+  let result: any = null;
+
+  try {
+    result = await response.json();
+  } catch {
+    result = {};
+  }
+
+  if (!response.ok) {
+    if (result?.requiresActivation) {
+      throw new NatanActivationRequiredError(result);
+    }
+
+    throw new Error(
+      result?.message ||
+        result?.error ||
+        `Server error: HTTP ${response.status}`
+    );
+  }
+
+  if (result?.success === false) {
+    throw new Error(
+      result?.message ||
+        result?.error ||
+        'فشل تنفيذ العملية.'
+    );
+  }
+
+  return result as T;
+}
+
+// ============================================================
+// SESSION CONVERTER
+// ============================================================
+
+function convertUserToSession(
+  user: any,
+  token: string
+): AppAuthSession {
+  const rawExpiry =
+    user?.activation_expires_at ??
+    user?.expiresAt ??
+    user?.expires_at;
+
+  const expiresAt = rawExpiry
+    ? new Date(rawExpiry).getTime()
+    : Date.now() +
+      30 * 24 * 60 * 60 * 1000;
+
+  const maxDevices =
+    Number(
+      user?.max_devices ??
+        user?.maxDevices ??
+        1
+    ) || 1;
+
+  return {
+    isAuthenticated: true,
+
+    username:
+      user?.username || '',
+
+    fullName:
+      user?.full_name ||
+      user?.fullName ||
+      '',
+
+    email:
+      user?.email ||
+      undefined,
+
+    userId:
+      user?.id ||
+      undefined,
+
+    activatedAt:
+      user?.activated_at
+        ? new Date(
+            user.activated_at
+          ).getTime()
+        : Date.now(),
+
+    expiresAt,
+
+    licenseKey:
+      user?.activation_code ||
+      user?.activationCode ||
+      '',
+
+    planName:
+      user?.plan_name ||
+      user?.planName ||
+      user?.plan?.name ||
+      'NATAN',
+
+    deviceId:
+      user?.device_id ||
+      user?.deviceId ||
+      undefined,
+
+    boundHardware:
+      maxDevices === 1
+        ? 'Locked-to-Single-Device'
+        : `${maxDevices} Device(s)`,
+
+    maxDevices,
+
+    token,
+  };
+}
+
+// ============================================================
+// DEVICE ID
+// ============================================================
+
+const DEVICE_STORAGE_KEY =
+  'natan_device_id';
+
+export async function getNatanDeviceId(): Promise<string> {
+  try {
+    const existing =
+      localStorage.getItem(
+        DEVICE_STORAGE_KEY
+      );
+
+    if (
+      existing &&
+      existing.trim()
+    ) {
+      return existing.trim();
+    }
+
+    let deviceId = '';
+
+    if (
+      typeof crypto !== 'undefined' &&
+      typeof crypto.randomUUID ===
+        'function'
+    ) {
+      deviceId =
+        crypto.randomUUID();
+    } else {
+      deviceId =
+        `natan-${Date.now()}-${Math.random()
+          .toString(36)
+          .substring(2, 12)}`;
+    }
+
+    localStorage.setItem(
+      DEVICE_STORAGE_KEY,
+      deviceId
+    );
+
+    return deviceId;
+  } catch {
+    return (
+      `natan-${Date.now()}-${Math.random()
+        .toString(36)
+        .substring(2, 12)}`
+    );
+  }
+}
+
+// ============================================================
+// REGISTER
+// ============================================================
+
+export async function registerNatanUser(
+  params: {
+    username: string;
+    fullName: string;
+    email: string;
+    phone: string;
+    password: string;
+    confirmPassword: string;
+    activationCode: string;
+    city?: string;
+    deviceId?: string;
+    deviceName?: string;
+    platform?: string;
+    appVersion?: string;
+  }
+): Promise<ApiResponse> {
+  const username =
+    String(
+      params.username ?? ''
+    ).trim();
+
+  const fullName =
+    String(
+      params.fullName ?? ''
+    ).trim();
+
+  const email =
+    String(
+      params.email ?? ''
+    )
+      .trim()
+      .toLowerCase();
+
+  const phone =
+    String(
+      params.phone ?? ''
+    ).trim();
+
+  const password =
+    String(
+      params.password ?? ''
+    );
+
+  const confirmPassword =
+    String(
+      params.confirmPassword ?? ''
+    );
+
+  const activationCode =
+    String(
+      params.activationCode ?? ''
+    )
+      .trim()
+      .toUpperCase();
+
+  if (!username) {
+    throw new Error(
+      'يرجى إدخال اسم المستخدم.'
+    );
+  }
+
+  if (username.length < 3) {
+    throw new Error(
+      'اسم المستخدم يجب أن يكون 3 أحرف أو أرقام على الأقل.'
+    );
+  }
+
+  if (!/^[a-zA-Z0-9_.-]+$/.test(username)) {
+    throw new Error(
+      'اسم المستخدم يجب أن يحتوي على أحرف أو أرقام أو _ أو - أو . فقط.'
+    );
+  }
+
+  if (!fullName) {
+    throw new Error(
+      'يرجى إدخال الاسم الكامل.'
+    );
+  }
+
+  if (!email) {
+    throw new Error(
+      'يرجى إدخال البريد الإلكتروني.'
+    );
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error(
+      'يرجى إدخال بريد إلكتروني صحيح.'
+    );
+  }
+
+  if (!phone) {
+    throw new Error(
+      'يرجى إدخال رقم الهاتف.'
+    );
+  }
+
+  if (!password) {
+    throw new Error(
+      'يرجى إدخال كلمة المرور.'
+    );
+  }
+
+  if (password.length < 6) {
+    throw new Error(
+      'كلمة المرور يجب أن تكون 6 أحرف أو أرقام على الأقل.'
+    );
+  }
+
+  if (password !== confirmPassword) {
+    throw new Error(
+      'كلمتا المرور غير متطابقتين.'
+    );
+  }
+
+  if (!activationCode) {
+    throw new Error(
+      'يرجى إدخال رمز التفعيل.'
+    );
+  }
+
+  const deviceId =
+    params.deviceId ||
+    await getNatanDeviceId();
+
+  if (!deviceId) {
+    throw new Error(
+      'تعذر الحصول على معرف الجهاز.'
+    );
+  }
+
+  return request<ApiResponse>(
+    '/api/auth/register',
+    {
+      method: 'POST',
+
+      body: JSON.stringify({
+        username,
+        fullName,
+        email,
+        phone,
+        password,
+        activationCode,
+
+        city:
+          params.city ||
+          undefined,
+
+        deviceId,
+
+        deviceName:
+          params.deviceName ||
+          'NATAN Android',
+
+        platform:
+          params.platform ||
+          'android',
+
+        appVersion:
+          params.appVersion ||
+          '4.0.0',
+      }),
+    }
+  );
+}
+
+// ============================================================
+// LOGIN
+// ============================================================
+
+// ============================================================
+
+export async function loginNatanUser(
+  params: {
+    username: string;
+    password: string;
+    deviceId?: string;
+    deviceName?: string;
+    platform?: string;
+    appVersion?: string;
+  }
+): Promise<AppAuthSession> {
+  const username =
+    String(
+      params.username ?? ''
+    ).trim();
+
+  const password =
+    String(
+      params.password ?? ''
+    );
+
+  if (!username) {
+    throw new Error(
+      'يرجى إدخال اسم المستخدم أو البريد الإلكتروني أو رقم الهاتف.'
+    );
+  }
+
+  if (!password) {
+    throw new Error(
+      'يرجى إدخال كلمة المرور.'
+    );
+  }
+
+  const deviceId =
+    params.deviceId ||
+    await getNatanDeviceId();
+
+  const result =
+    await request<ApiResponse>(
+      '/api/auth/login',
+      {
+        method: 'POST',
+
+        body: JSON.stringify({
+          username,
+          password,
+          deviceId,
+
+          deviceName:
+            params.deviceName ||
+            'NATAN Android',
+
+          platform:
+            params.platform ||
+            'android',
+
+          appVersion:
+            params.appVersion ||
+            '4.0.0',
+        }),
+      }
+    );
+
+  if (
+    !result.token ||
+    !result.user
+  ) {
+    throw new Error(
+      result.message ||
+        'فشل تسجيل الدخول.'
+    );
+  }
+
+  return convertUserToSession(
+    result.user,
+    result.token
+  );
+}
+
+// ============================================================
+// ACTIVATION
+// ============================================================
+
+export async function activateNatanUser(
+  params: {
+    username?: string;
+    email?: string;
+    phone?: string;
+    identifier?: string;
+    activationCode: string;
+    deviceId?: string;
+  }
+): Promise<AppAuthSession> {
+  const identifier =
+    String(
+      params.identifier ||
+        params.username ||
+        params.email ||
+        params.phone ||
+        ''
+    ).trim();
+
+  const activationCode =
+    String(
+      params.activationCode ?? ''
+    )
+      .trim()
+      .toUpperCase();
+
+  if (!identifier) {
+    throw new Error(
+      'يرجى إدخال اسم المستخدم أو البريد الإلكتروني أو رقم الهاتف.'
+    );
+  }
+
+  if (!activationCode) {
+    throw new Error(
+      'يرجى إدخال كود التفعيل.'
+    );
+  }
+
+  const deviceId =
+    params.deviceId ||
+    await getNatanDeviceId();
+
+  const result =
+    await request<ApiResponse>(
+      '/api/auth/activate',
+      {
+        method: 'POST',
+
+        body: JSON.stringify({
+          identifier,
+          activationCode,
+          deviceId,
+        }),
+      }
+    );
+
+  if (
+    !result.success ||
+    !result.token ||
+    !result.user
+  ) {
+    throw new Error(
+      result.message ||
+        'فشل تفعيل الحساب.'
+    );
+  }
+
+  return convertUserToSession(
+    result.user,
+    result.token
+  );
+}
+
+// ============================================================
+// FORGOT PASSWORD
+// ============================================================
+
+export async function forgotNatanPassword(
+  username: string
+) {
+  const cleanUsername =
+    String(
+      username ?? ''
+    ).trim();
+
+  if (!cleanUsername) {
+    throw new Error(
+      'يرجى إدخال اسم المستخدم أو البريد الإلكتروني أو رقم الهاتف.'
+    );
+  }
+
+  return request<ApiResponse>(
+    '/api/auth/forgot-password',
+    {
+      method: 'POST',
+
+      body: JSON.stringify({
+        username:
+          cleanUsername,
+      }),
+    }
+  );
+}
+
+// ============================================================
+// RESET PASSWORD
+// ============================================================
+
+export async function resetNatanPassword(
+  params: {
+    token: string;
+    newPassword: string;
+  }
+) {
+  const token =
+    String(
+      params.token ?? ''
+    ).trim();
+
+  const newPassword =
+    String(
+      params.newPassword ?? ''
+    );
+
+  if (!token) {
+    throw new Error(
+      'رمز استعادة كلمة المرور غير موجود.'
+    );
+  }
+
+  if (newPassword.length < 6) {
+    throw new Error(
+      'كلمة المرور الجديدة يجب أن تكون 6 أحرف أو أرقام على الأقل.'
+    );
+  }
+
+  return request<ApiResponse>(
+    '/api/auth/reset-password',
+    {
+      method: 'POST',
+
+      body: JSON.stringify({
+        token,
+        newPassword,
+      }),
+    }
+  );
+}
+
+// ============================================================
+// GET CURRENT USER
+// ============================================================
+
+export async function getNatanMe(
+  token: string
+) {
+  const cleanToken =
+    String(
+      token ?? ''
+    ).trim();
+
+  if (!cleanToken) {
+    throw new Error(
+      'رمز الدخول غير موجود.'
+    );
+  }
+
+  return request<ApiResponse>(
+    '/api/auth/me',
+    {
+      method: 'GET',
+
+      headers: {
+        Authorization:
+          `Bearer ${cleanToken}`,
+      },
+    }
+  );
+}
+
+// ============================================================
+// SERVER HEALTH
+// ============================================================
+
+export async function checkNatanServer() {
+  return request<ApiResponse>(
+    '/api/health',
+    {
+      method: 'GET',
+    }
+  );
+}
+
+// ============================================================
+// API BASE URL
+// ============================================================
+
+export function getNatanApiBaseUrl() {
+  return API_BASE_URL;
+}
+
+// ============================================================
+// TOKEN STORAGE
+// ============================================================
+
+const TOKEN_STORAGE_KEY =
+  'natan_auth_token';
+
+export function saveNatanToken(
+  token: string
+) {
+  try {
+    localStorage.setItem(
+      TOKEN_STORAGE_KEY,
+      String(token || '')
+    );
+  } catch {
+    // Ignore storage error
+  }
+}
+
+export function getSavedNatanToken() {
+  try {
+    return (
+      localStorage.getItem(
+        TOKEN_STORAGE_KEY
+      ) || ''
+    );
+  } catch {
+    return '';
+  }
+}
+
+export function clearNatanToken() {
+  try {
+    localStorage.removeItem(
+      TOKEN_STORAGE_KEY
+    );
+  } catch {
+    // Ignore storage error
+  }
+}
+
+// ============================================================
+// LOGOUT
+// ============================================================
+
+export function logoutNatan() {
+  clearNatanToken();
+
+  try {
+    localStorage.removeItem(
+      'natan_auth_session'
+    );
+  } catch {
+    // Ignore
+  }
+}
