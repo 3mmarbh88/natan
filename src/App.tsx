@@ -3011,7 +3011,7 @@ export default function App() {
                 >
                   {isAr
                     ? '📍 هذا الخيار يحدد موقع البحث داخل NATAN، ويمكن تطبيق النقطة على Android عبر Mock Location الرسمي.'
-                    : '📍 This option controls NATAN search location. You can also publish the selected point through Android's official Mock Location mechanism.'}
+                    : "📍 This option controls NATAN search location. You can also publish the selected point through Android's official Mock Location mechanism."}
                 </div>
               </div>
             </div>
@@ -3034,7 +3034,7 @@ export default function App() {
                       <p className="text-xs text-slate-400 mt-1">
                         {isAr
                           ? 'حدد نقطة على الخريطة أو استخدم موقع الهاتف الحالي. يمكنك تطبيق النقطة على Android عبر Mock Location الرسمي ليستخدمها NATAN والتطبيقات الأخرى التي تقبل المواقع الوهمية.'
-                          : 'Choose a point on the map or use the phone location. You can publish it through Android's official Mock Location mechanism for apps that accept mock locations.'}
+                          : "Choose a point on the map or use the phone location. You can publish it through Android's official Mock Location mechanism for apps that accept mock locations."}
                       </p>
                     </div>
                   </div>
