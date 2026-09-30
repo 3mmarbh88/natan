@@ -1,4 +1,4 @@
-﻿
+
 import React, { useState, useEffect } from 'react';
 import {
   Zap,
@@ -351,18 +351,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                     sm:mt-1
                     flex
                     items-center
-                    gap-1
-                    px-2
-                    py-0.5
-                    sm:px-2.5
-                    sm:py-1
-                    rounded-lg
+                    gap-1.5
+                    px-2.5
+                    py-1.5
+                    sm:px-3
+                    sm:py-1.5
+                    min-h-[38px]
+                    sm:min-h-[40px]
+                    rounded-xl
                     border
-                    text-[10px]
-                    sm:text-[11px]
+                    text-xs
                     font-bold
                     transition-all
                     shadow-sm
+                    active:scale-95
 
                     ${
                       isLicensed
@@ -402,8 +404,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {authSession ? (
                     <User
                       className={`
-                        w-3
-                        h-3
+                        w-3.5
+                        h-3.5
                         ${
                           isLicensed
                             ? 'text-emerald-400'
@@ -414,8 +416,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   ) : (
                     <UserPlus
                       className="
-                        w-3
-                        h-3
+                        w-3.5
+                        h-3.5
                         text-purple-400
                       "
                     />
@@ -424,7 +426,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span
                     className="
                       truncate
-                      max-w-[90px]
+                      max-w-[100px]
                       sm:max-w-none
                     "
                   >
@@ -445,12 +447,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                     isLicensed && (
                       <span
                         className="
-                          text-[9px]
-                          sm:text-[10px]
+                          text-[10px]
                           bg-purple-500/30
                           text-purple-200
                           px-1.5
-                          py-0.2
+                          py-0.5
                           rounded-full
                           font-mono
                           font-bold
@@ -470,12 +471,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                     !isLicensed && (
                       <span
                         className="
-                          text-[9px]
-                          sm:text-[10px]
+                          text-[10px]
                           bg-rose-500/20
                           text-rose-300
                           px-1.5
-                          py-0.2
+                          py-0.5
                           rounded-full
                           font-bold
                         "
@@ -506,8 +506,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="
               flex
               items-center
-              gap-1.5
-              sm:gap-2
+              gap-2
             "
           >
 
@@ -526,18 +525,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               className={`
                 flex
                 items-center
-                gap-1
-                sm:gap-1.5
-                px-2.5
-                sm:px-3
-                py-1.5
+                gap-1.5
+                px-3
+                py-2
+                min-h-[40px]
                 rounded-xl
-                text-[11px]
-                sm:text-xs
+                text-xs
                 font-bold
                 transition-all
                 cursor-pointer
                 border
+                active:scale-95
 
                 ${
                   settings.autoBooking
@@ -572,7 +570,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 `}
               />
 
-              <span className="hidden xs:inline">
+              <span className="inline">
                 {t.autoBookingLabel}
               </span>
 
@@ -604,8 +602,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 flex
                 items-center
                 gap-1.5
-                px-2.5
-                py-1.5
+                px-3
+                py-2
+                min-h-[40px]
                 rounded-xl
                 bg-slate-800/90
                 hover:bg-slate-700
@@ -613,8 +612,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 hover:text-white
                 border
                 border-purple-500/30
-                text-[11px]
-                sm:text-xs
+                text-xs
                 font-bold
                 transition-all
                 cursor-pointer
@@ -673,29 +671,29 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="
               flex
               items-center
-              gap-1
-              px-2
-              py-1.5
+              gap-1.5
+              px-3
+              py-2
+              min-h-[42px]
               rounded-xl
               bg-emerald-950/40
               border
               border-emerald-800/50
-              text-[10px]
-              sm:text-xs
+              text-xs
               text-emerald-300
               shrink-0
             "
           >
             <ShieldCheck
               className="
-                w-3.5
-                h-3.5
+                w-4
+                h-4
                 text-emerald-400
                 shrink-0
               "
             />
 
-            <span className="whitespace-nowrap">
+            <span className="whitespace-nowrap font-medium">
               {t.bookedCount}
             </span>
 
@@ -733,8 +731,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 flex
                 items-center
                 justify-center
-                w-10
-                h-10
+                w-11
+                h-11
+                min-w-[44px]
+                min-h-[44px]
                 rounded-xl
                 bg-emerald-500/10
                 hover:bg-emerald-500/20
@@ -801,6 +801,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }
                     className="
                       w-full
+                      min-h-[44px]
                       flex
                       items-center
                       justify-center
@@ -829,8 +830,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   >
                     <MessageCircle
                       className="
-                        w-6
-                        h-6
+                        w-5
+                        h-5
                         fill-emerald-400/20
                       "
                     />
@@ -858,6 +859,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }
                     className="
                       w-full
+                      min-h-[44px]
                       flex
                       items-center
                       justify-center
@@ -887,8 +889,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                   >
                     <MessageCircle
                       className="
-                        w-6
-                        h-6
+                        w-5
+                        h-5
                         fill-emerald-400/20
                       "
                     />
@@ -921,10 +923,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="
               flex
               items-center
-              gap-1
-              px-2.5
-              sm:px-3
-              py-1.5
+              gap-1.5
+              px-3.5
+              py-2
+              min-h-[42px]
               rounded-xl
               bg-gradient-to-r
               from-purple-600
@@ -933,8 +935,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               hover:from-purple-500
               hover:to-indigo-500
               text-white
-              text-[10px]
-              sm:text-xs
+              text-xs
               font-black
               transition-all
               shadow-md
@@ -946,8 +947,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <Zap
               className="
-                w-3.5
-                h-3.5
+                w-4
+                h-4
                 fill-white
                 shrink-0
               "
@@ -970,19 +971,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="
               flex
               items-center
-              gap-1
-              px-2
-              sm:px-2.5
-              py-1.5
+              gap-1.5
+              px-3
+              py-2
+              min-h-[42px]
               rounded-xl
               bg-purple-500/10
               hover:bg-purple-500/20
               text-purple-300
               border
               border-purple-500/30
-              text-[10px]
-              sm:text-xs
-              font-semibold
+              text-xs
+              font-bold
               transition-colors
               cursor-pointer
               shrink-0
@@ -992,8 +992,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <Sparkles
               className="
-                w-3.5
-                h-3.5
+                w-4
+                h-4
                 text-purple-400
                 shrink-0
               "
@@ -1019,16 +1019,15 @@ export const Navbar: React.FC<NavbarProps> = ({
             className={`
               flex
               items-center
-              gap-1
-              px-2.5
-              sm:px-3
-              py-1.5
+              gap-2
+              px-4
+              py-2
+              min-h-[44px]
               rounded-xl
-              text-[10px]
-              sm:text-xs
+              text-xs
               font-black
               transition-all
-              shadow-md
+              shadow-lg
               cursor-pointer
               shrink-0
               active:scale-95
@@ -1041,7 +1040,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     text-white
                     shadow-rose-600/30
                     ring-2
-                    ring-rose-400/20
+                    ring-rose-400/30
                   `
                   : `
                     bg-emerald-600
@@ -1049,7 +1048,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     text-white
                     shadow-emerald-600/30
                     ring-2
-                    ring-emerald-400/20
+                    ring-emerald-400/30
                   `
               }
             `}
@@ -1058,8 +1057,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <>
                 <Square
                   className="
-                    w-3.5
-                    h-3.5
+                    w-4
+                    h-4
                     fill-white
                     shrink-0
                   "
@@ -1073,8 +1072,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <>
                 <Play
                   className="
-                    w-3.5
-                    h-3.5
+                    w-4
+                    h-4
                     fill-white
                     shrink-0
                   "
@@ -1104,18 +1103,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="
                   flex
                   items-center
-                  gap-1
-                  px-2.5
-                  sm:px-3
-                  py-1.5
+                  gap-1.5
+                  px-3
+                  py-2
+                  min-h-[42px]
                   rounded-xl
                   bg-rose-500/10
                   hover:bg-rose-500/20
                   text-rose-300
                   border
                   border-rose-500/30
-                  text-[10px]
-                  sm:text-xs
+                  text-xs
                   font-bold
                   transition-all
                   cursor-pointer
@@ -1125,8 +1123,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <LogOut
                   className="
-                    w-3.5
-                    h-3.5
+                    w-4
+                    h-4
                     shrink-0
                   "
                 />

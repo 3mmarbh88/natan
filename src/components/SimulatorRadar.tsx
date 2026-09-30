@@ -274,13 +274,14 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
                   </div>
 
                   {/* Ninja Styled Button "حجز فترة الدوام" & Delete Action */}
-                  <div className="flex items-center gap-2 justify-end">
+                  <div className="flex items-center gap-2 w-full md:w-auto justify-stretch md:justify-end mt-2 md:mt-0">
                     {onDeleteShift && (
                       <button
                         type="button"
                         onClick={() => onDeleteShift(shift.id)}
                         title="حذف هذا الشفت من القائمة"
-                        className="p-3 rounded-xl border border-slate-800 bg-slate-900/90 hover:bg-rose-950/50 hover:border-rose-500/50 text-slate-500 hover:text-rose-400 transition-all cursor-pointer shrink-0"
+                        aria-label="حذف هذا الشفت"
+                        className="w-12 h-12 min-w-[48px] min-h-[48px] flex items-center justify-center rounded-xl border border-slate-800 bg-slate-900/90 hover:bg-rose-950/50 hover:border-rose-500/50 text-slate-500 hover:text-rose-400 transition-all cursor-pointer shrink-0 active:scale-95"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -289,10 +290,10 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
                       type="button"
                       disabled={!!conflict}
                       onClick={() => !conflict && handleManualClick(shift)}
-                      className={`w-full md:w-auto min-w-[180px] px-5 py-3 rounded-xl text-xs font-bold border transition-all shadow-md flex items-center justify-center gap-2.5 ${
+                      className={`flex-1 md:flex-none w-full md:w-auto min-w-[180px] min-h-[48px] px-5 py-3 rounded-xl text-sm font-black border transition-all shadow-md flex items-center justify-center gap-2.5 active:scale-[0.98] ${
                         conflict
                           ? 'bg-slate-900/60 border-rose-900/40 text-rose-400/80 cursor-not-allowed opacity-80'
-                          : 'bg-slate-900 hover:bg-purple-950/40 text-white border-slate-700 hover:border-purple-500/70 hover:shadow-lg hover:shadow-purple-500/15 cursor-pointer group'
+                          : 'bg-gradient-to-r from-purple-700 via-purple-600 to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-white border-purple-500/50 shadow-lg shadow-purple-600/20 cursor-pointer group'
                       }`}
                       title={conflict ? `فترتك محجوزة مسبقاً (${conflict.startTime} - ${conflict.endTime}) ولا يمكن الحجز المزدوج` : undefined}
                     >
@@ -303,8 +304,8 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
                         </>
                       ) : (
                         <>
-                          <Lock className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
-                          <span className="text-sm font-black group-hover:text-purple-200 transition-colors">{t.bookShiftBtn}</span>
+                          <Lock className="w-4 h-4 text-white group-hover:scale-110 transition-transform" />
+                          <span className="text-sm font-black text-white">{t.bookShiftBtn}</span>
                         </>
                       )}
                     </button>
@@ -383,14 +384,14 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
               <button
                 type="button"
                 onClick={() => setModalShift(null)}
-                className="flex-1 py-2.5 px-4 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors cursor-pointer"
+                className="flex-1 min-h-[46px] py-3 px-4 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors cursor-pointer active:scale-95"
               >
                 {t.cancel}
               </button>
               <button
                 type="button"
                 onClick={handleConfirmBooking}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-purple-500/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                className="flex-1 min-h-[46px] py-3 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-purple-500/25 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
               >
                 <span>{t.bookShiftBtn}</span>
               </button>

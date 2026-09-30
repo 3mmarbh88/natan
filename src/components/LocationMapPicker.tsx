@@ -262,10 +262,10 @@ export const LocationMapPicker: React.FC<LocationMapPickerProps> = ({ value, onC
           </div>
 
           <div className="flex gap-2 pointer-events-auto">
-            <button type="button" onClick={() => zoomAtCenter(zoom + 1)} className="w-10 h-10 rounded-xl bg-slate-950/85 border border-white/15 text-white flex items-center justify-center backdrop-blur-xl hover:bg-slate-800">
+            <button type="button" onClick={() => zoomAtCenter(zoom + 1)} className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-slate-950/90 border border-white/20 text-white flex items-center justify-center backdrop-blur-xl hover:bg-slate-800 active:scale-95 shadow-lg">
               <Plus className="w-5 h-5" />
             </button>
-            <button type="button" onClick={() => zoomAtCenter(zoom - 1)} className="w-10 h-10 rounded-xl bg-slate-950/85 border border-white/15 text-white flex items-center justify-center backdrop-blur-xl hover:bg-slate-800">
+            <button type="button" onClick={() => zoomAtCenter(zoom - 1)} className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-slate-950/90 border border-white/20 text-white flex items-center justify-center backdrop-blur-xl hover:bg-slate-800 active:scale-95 shadow-lg">
               <Minus className="w-5 h-5" />
             </button>
           </div>
@@ -275,7 +275,7 @@ export const LocationMapPicker: React.FC<LocationMapPickerProps> = ({ value, onC
           type="button"
           onClick={locateMe}
           disabled={locating}
-          className="absolute bottom-4 right-4 z-10 rounded-xl border border-cyan-400/30 bg-slate-950/90 backdrop-blur-xl px-3 py-2.5 text-xs font-black text-cyan-200 flex items-center gap-2 shadow-xl disabled:opacity-60"
+          className="absolute bottom-4 right-4 z-10 min-h-[44px] rounded-xl border border-cyan-400/40 bg-slate-950/95 backdrop-blur-xl px-4 py-2.5 text-xs font-black text-cyan-200 flex items-center gap-2 shadow-xl active:scale-95 disabled:opacity-60"
         >
           {locating ? <Loader2 className="w-4 h-4 animate-spin" /> : <LocateFixed className="w-4 h-4" />}
           {isAr ? 'استخدام موقعي الحالي' : 'Use my current location'}
@@ -295,16 +295,16 @@ export const LocationMapPicker: React.FC<LocationMapPickerProps> = ({ value, onC
       </div>
 
       <div className="p-4 bg-slate-950/90 border-t border-slate-800 space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <button type="button" onClick={applyToAndroid} disabled={mocking} className="rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-3 py-3 text-xs font-black text-cyan-200 flex items-center justify-center gap-2 hover:bg-cyan-500/20 disabled:opacity-60">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <button type="button" onClick={applyToAndroid} disabled={mocking} className="min-h-[48px] rounded-xl border border-cyan-400/40 bg-cyan-500/15 px-4 py-3 text-xs sm:text-sm font-black text-cyan-200 flex items-center justify-center gap-2 hover:bg-cyan-500/25 active:scale-95 shadow-md shadow-cyan-500/10 disabled:opacity-60">
             {mocking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Smartphone className="w-4 h-4" />}
             {isAr ? 'تطبيق الموقع على الهاتف' : 'Apply to phone'}
           </button>
-          <button type="button" onClick={openMockSettings} className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-3 text-xs font-black text-amber-200 flex items-center justify-center gap-2 hover:bg-amber-500/20">
+          <button type="button" onClick={openMockSettings} className="min-h-[48px] rounded-xl border border-amber-400/40 bg-amber-500/15 px-4 py-3 text-xs sm:text-sm font-black text-amber-200 flex items-center justify-center gap-2 hover:bg-amber-500/25 active:scale-95 shadow-md shadow-amber-500/10">
             <Settings2 className="w-4 h-4" />
             {isAr ? 'إعداد Mock Location' : 'Mock Location setup'}
           </button>
-          <button type="button" onClick={stopMock} disabled={!mockActive} className="rounded-xl border border-slate-600 bg-slate-800/70 px-3 py-3 text-xs font-black text-slate-200 flex items-center justify-center gap-2 hover:bg-slate-700 disabled:opacity-40">
+          <button type="button" onClick={stopMock} disabled={!mockActive} className="min-h-[48px] rounded-xl border border-slate-600 bg-slate-800/80 px-4 py-3 text-xs sm:text-sm font-black text-slate-200 flex items-center justify-center gap-2 hover:bg-slate-700 active:scale-95 disabled:opacity-40">
             <Square className="w-4 h-4" />
             {isAr ? 'إيقاف الموقع' : 'Stop location'}
           </button>

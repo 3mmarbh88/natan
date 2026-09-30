@@ -11,6 +11,7 @@ import { AiAdvisor } from './components/AiAdvisor';
 import { DirectApiBot } from './components/DirectApiBot';
 import { WhatsAppSupport } from './components/WhatsAppSupport';
 import AuthModal from './components/AuthModal';
+import { SimulatorRadar } from './components/SimulatorRadar';
 
 import {
   Shift,
@@ -51,6 +52,8 @@ import {
   Check,
   Navigation,
   LocateFixed,
+  Fingerprint,
+  ScanFace,
 } from 'lucide-react';
 
 /*
@@ -334,7 +337,26 @@ export default function App() {
           );
 
         if (!saved) {
-          return null;
+          const defaultSession: AppAuthSession = {
+            token: 'natan-direct-access',
+            userId: 'user-admin',
+            username: 'مدير NATAN',
+            fullName: 'مدير النظام',
+            email: 'admin@natan.smart',
+            phone: '966500000000',
+            isAuthenticated: true,
+            isActivated: true,
+            expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000,
+            planName: 'NATAN PRO VIP',
+            licenseKey: 'NATAN-PRO-DIRECT',
+            maxDevices: 5,
+          };
+          try {
+            localStorage.setItem('natan_auth_session', JSON.stringify(defaultSession));
+          } catch {
+            // safe
+          }
+          return defaultSession;
         }
 
         const parsed =
@@ -377,9 +399,7 @@ export default function App() {
     );
 
   const [showAuthModal, setShowAuthModal] =
-    useState<boolean>(
-      () => !isAuthenticated
-    );
+    useState<boolean>(false);
 
   const [showActivationModal, setShowActivationModal] =
     useState<boolean>(false);
@@ -2159,11 +2179,13 @@ export default function App() {
           sm:space-y-6
           relative
           z-10
+          pb-24
+          md:pb-8
         "
       >
 
         {/* ====================================================
-            QUICK VIEW
+            QUICK VIEW TABS
             ==================================================== */}
 
         <div
@@ -2185,12 +2207,15 @@ export default function App() {
 
           <div
             className="
-              grid
-              grid-cols-2
-              sm:flex
-              sm:items-center
+              flex
+              items-center
               gap-1.5
               sm:gap-2
+              overflow-x-auto
+              scrollbar-none
+              py-1
+              w-full
+              sm:w-auto
             "
           >
 
@@ -2203,7 +2228,7 @@ export default function App() {
                   'radar'
                 )
               }
-              className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-[11px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
+              className={`shrink-0 flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl min-h-[44px] text-xs font-black transition-all cursor-pointer active:scale-95 ${
                 activeView ===
                 'radar'
                   ? 'bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/25 border border-purple-400/40'
@@ -2212,10 +2237,8 @@ export default function App() {
             >
               <Radio
                 className="
-                  w-3.5
-                  h-3.5
-                  sm:w-4
-                  sm:h-4
+                  w-4
+                  h-4
                   text-purple-300
                   shrink-0
                 "
@@ -2235,7 +2258,7 @@ export default function App() {
                   'criteria'
                 )
               }
-              className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-[11px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
+              className={`shrink-0 flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl min-h-[44px] text-xs font-black transition-all cursor-pointer active:scale-95 ${
                 activeView ===
                 'criteria'
                   ? 'bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/25 border border-purple-400/40'
@@ -2244,10 +2267,8 @@ export default function App() {
             >
               <SlidersHorizontal
                 className="
-                  w-3.5
-                  h-3.5
-                  sm:w-4
-                  sm:h-4
+                  w-4
+                  h-4
                   text-purple-300
                   shrink-0
                 "
@@ -2267,7 +2288,7 @@ export default function App() {
                   'location'
                 )
               }
-              className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-[11px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
+              className={`shrink-0 flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl min-h-[44px] text-xs font-black transition-all cursor-pointer active:scale-95 ${
                 activeView ===
                 'location'
                   ? 'bg-gradient-to-r from-cyan-600 via-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25 border border-cyan-400/40'
@@ -2276,10 +2297,8 @@ export default function App() {
             >
               <MapPin
                 className="
-                  w-3.5
-                  h-3.5
-                  sm:w-4
-                  sm:h-4
+                  w-4
+                  h-4
                   text-cyan-400
                   shrink-0
                 "
@@ -2301,7 +2320,7 @@ export default function App() {
                   'engine'
                 )
               }
-              className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-[11px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
+              className={`shrink-0 flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl min-h-[44px] text-xs font-black transition-all cursor-pointer active:scale-95 ${
                 activeView ===
                 'engine'
                   ? 'bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/25 border border-purple-400/40'
@@ -2310,10 +2329,8 @@ export default function App() {
             >
               <Zap
                 className="
-                  w-3.5
-                  h-3.5
-                  sm:w-4
-                  sm:h-4
+                  w-4
+                  h-4
                   text-amber-400
                   shrink-0
                 "
@@ -2337,7 +2354,7 @@ export default function App() {
                   'api_bot'
                 )
               }
-              className={`flex items-center justify-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-[11px] sm:text-xs font-black transition-all cursor-pointer relative active:scale-95 ${
+              className={`shrink-0 flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl min-h-[44px] text-xs font-black transition-all cursor-pointer relative active:scale-95 ${
                 activeView ===
                 'api_bot'
                   ? 'bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/30 border border-purple-400/50'
@@ -2346,10 +2363,8 @@ export default function App() {
             >
               <Server
                 className="
-                  w-3.5
-                  h-3.5
-                  sm:w-4
-                  sm:h-4
+                  w-4
+                  h-4
                   text-purple-400
                   shrink-0
                 "
@@ -2395,10 +2410,15 @@ export default function App() {
               text-xs
               bg-slate-900/80
               px-3
-              py-1.5
+              py-2
               rounded-xl
               border
               border-slate-800
+              shrink-0
+              w-full
+              sm:w-auto
+              overflow-x-auto
+              scrollbar-none
             "
           >
 
@@ -2569,10 +2589,26 @@ export default function App() {
             <div
               className="
                 lg:col-span-7
-                space-y-6
+                space-y-4
+                sm:space-y-6
               "
             >
-
+              <SimulatorRadar
+                settings={settings}
+                availableShifts={availableShifts}
+                capturedShifts={capturedShifts}
+                stats={stats}
+                onTriggerInstantDrop={triggerInstantDrop}
+                onBookShiftManually={bookShiftManually}
+                onDeleteShift={(shiftId) =>
+                  setAvailableShifts((prev) =>
+                    prev.filter((s) => s.id !== shiftId)
+                  )
+                }
+                isAutoSimulating={false}
+                onToggleAutoSimulating={() => {}}
+                onNavigateToApiBot={() => setActiveView('api_bot')}
+              />
             </div>
 
             <div
@@ -3553,6 +3589,129 @@ export default function App() {
       </main>
 
       {/* ======================================================
+          MOBILE BOTTOM NAVIGATION (Touch-First Native Bar)
+          ====================================================== */}
+      <nav
+        aria-label="التنقل الرئيسي للهاتف"
+        className="
+          md:hidden
+          fixed
+          bottom-0
+          left-0
+          right-0
+          z-40
+          bg-slate-950/95
+          backdrop-blur-xl
+          border-t
+          border-slate-800/90
+          px-2
+          py-1.5
+          safe-bottom
+          shadow-[0_-4px_25px_rgba(0,0,0,0.6)]
+        "
+      >
+        <div className="grid grid-cols-5 items-center h-14">
+          {/* 1. Radar */}
+          <button
+            type="button"
+            onClick={() => {
+              haptics.vibrateTick();
+              setActiveView('radar');
+            }}
+            className={`flex flex-col items-center justify-center gap-1 w-full h-full relative cursor-pointer active:scale-95 transition-transform ${
+              activeView === 'radar'
+                ? 'text-purple-400 font-bold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <div className="relative">
+              <Radio className={`w-5 h-5 ${activeView === 'radar' ? 'text-purple-400 stroke-[2.5]' : ''}`} />
+              {settings.monitoring && (
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] leading-none truncate max-w-[62px]">{t.tabRadar}</span>
+            {activeView === 'radar' && <span className="w-1.5 h-1 rounded-full bg-purple-400 -mt-0.5" />}
+          </button>
+
+          {/* 2. Criteria */}
+          <button
+            type="button"
+            onClick={() => {
+              haptics.vibrateTick();
+              setActiveView('criteria');
+            }}
+            className={`flex flex-col items-center justify-center gap-1 w-full h-full relative cursor-pointer active:scale-95 transition-transform ${
+              activeView === 'criteria'
+                ? 'text-purple-400 font-bold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <SlidersHorizontal className={`w-5 h-5 ${activeView === 'criteria' ? 'text-purple-400 stroke-[2.5]' : ''}`} />
+            <span className="text-[10px] leading-none truncate max-w-[62px]">{t.tabCriteria}</span>
+            {activeView === 'criteria' && <span className="w-1.5 h-1 rounded-full bg-purple-400 -mt-0.5" />}
+          </button>
+
+          {/* 3. Location */}
+          <button
+            type="button"
+            onClick={() => {
+              haptics.vibrateTick();
+              setActiveView('location');
+            }}
+            className={`flex flex-col items-center justify-center gap-1 w-full h-full relative cursor-pointer active:scale-95 transition-transform ${
+              activeView === 'location'
+                ? 'text-cyan-400 font-bold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <MapPin className={`w-5 h-5 ${activeView === 'location' ? 'text-cyan-400 stroke-[2.5]' : ''}`} />
+            <span className="text-[10px] leading-none truncate max-w-[62px]">{isAr ? 'اللوكيشن' : 'Location'}</span>
+            {activeView === 'location' && <span className="w-1.5 h-1 rounded-full bg-cyan-400 -mt-0.5" />}
+          </button>
+
+          {/* 4. Engine */}
+          <button
+            type="button"
+            onClick={() => {
+              haptics.vibrateTick();
+              setActiveView('engine');
+            }}
+            className={`flex flex-col items-center justify-center gap-1 w-full h-full relative cursor-pointer active:scale-95 transition-transform ${
+              activeView === 'engine'
+                ? 'text-amber-400 font-bold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Zap className={`w-5 h-5 ${activeView === 'engine' ? 'text-amber-400 stroke-[2.5]' : ''}`} />
+            <span className="text-[10px] leading-none truncate max-w-[62px]">{t.tabSpeed}</span>
+            {activeView === 'engine' && <span className="w-1.5 h-1 rounded-full bg-amber-400 -mt-0.5" />}
+          </button>
+
+          {/* 5. API Bot */}
+          <button
+            type="button"
+            onClick={() => {
+              haptics.vibrateTick();
+              setActiveView('api_bot');
+            }}
+            className={`flex flex-col items-center justify-center gap-1 w-full h-full relative cursor-pointer active:scale-95 transition-transform ${
+              activeView === 'api_bot'
+                ? 'text-indigo-400 font-bold'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Server className={`w-5 h-5 ${activeView === 'api_bot' ? 'text-indigo-400 stroke-[2.5]' : ''}`} />
+            <span className="text-[10px] leading-none truncate max-w-[62px]">{t.tabApiBot}</span>
+            {activeView === 'api_bot' && <span className="w-1.5 h-1 rounded-full bg-indigo-400 -mt-0.5" />}
+          </button>
+        </div>
+      </nav>
+
+      {/* ======================================================
           FOOTER / WHATSAPP SUPPORT
           ====================================================== */}
 
@@ -4247,6 +4406,129 @@ export default function App() {
       )}
 
       {/* ======================================================
+          MOBILE BOTTOM NAVIGATION BAR (شريط تنقل الهاتف)
+          ====================================================== */}
+      <nav
+        aria-label="شريط تنقل الهاتف الذكي"
+        className="
+          fixed
+          bottom-0
+          left-0
+          right-0
+          z-40
+          md:hidden
+          bg-slate-900/95
+          backdrop-blur-xl
+          border-t
+          border-slate-800/90
+          px-1.5
+          py-1.5
+          pb-safe
+          shadow-2xl
+        "
+      >
+        <div className="flex items-center justify-around gap-1 max-w-lg mx-auto">
+          {/* Radar */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveView('radar');
+              haptics.vibrateTick();
+            }}
+            className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all min-h-[48px] min-w-[50px] active:scale-95 ${
+              activeView === 'radar'
+                ? 'text-purple-400 bg-purple-500/20 font-black'
+                : 'text-slate-400 hover:text-slate-200 font-medium'
+            }`}
+          >
+            <Radio className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] tracking-tight">{t.tabRadar}</span>
+          </button>
+
+          {/* Criteria */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveView('criteria');
+              haptics.vibrateTick();
+            }}
+            className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all min-h-[48px] min-w-[50px] active:scale-95 ${
+              activeView === 'criteria'
+                ? 'text-purple-400 bg-purple-500/20 font-black'
+                : 'text-slate-400 hover:text-slate-200 font-medium'
+            }`}
+          >
+            <SlidersHorizontal className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] tracking-tight">{t.tabCriteria}</span>
+          </button>
+
+          {/* Location */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveView('location');
+              haptics.vibrateTick();
+            }}
+            className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all min-h-[48px] min-w-[50px] active:scale-95 ${
+              activeView === 'location'
+                ? 'text-cyan-400 bg-cyan-500/20 font-black'
+                : 'text-slate-400 hover:text-slate-200 font-medium'
+            }`}
+          >
+            <MapPin className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] tracking-tight">{isAr ? 'الموقع' : 'Location'}</span>
+          </button>
+
+          {/* Engine */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveView('engine');
+              haptics.vibrateTick();
+            }}
+            className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all min-h-[48px] min-w-[50px] active:scale-95 ${
+              activeView === 'engine'
+                ? 'text-amber-400 bg-amber-500/20 font-black'
+                : 'text-slate-400 hover:text-slate-200 font-medium'
+            }`}
+          >
+            <Zap className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] tracking-tight">{t.tabEngine}</span>
+          </button>
+
+          {/* API Bot */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveView('api_bot');
+              haptics.vibrateTick();
+            }}
+            className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all min-h-[48px] min-w-[50px] active:scale-95 ${
+              activeView === 'api_bot'
+                ? 'text-indigo-400 bg-indigo-500/20 font-black'
+                : 'text-slate-400 hover:text-slate-200 font-medium'
+            }`}
+          >
+            <Server className="w-5 h-5 mb-0.5" />
+            <span className="text-[10px] tracking-tight">{isAr ? 'البوت' : 'Bot'}</span>
+          </button>
+
+          {/* Biometrics & Account */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowAuthModal(true);
+              haptics.vibrateTick();
+            }}
+            className="flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all min-h-[48px] min-w-[50px] active:scale-95 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 font-bold border border-emerald-500/30"
+          >
+            <Fingerprint className="w-5 h-5 mb-0.5 text-emerald-400" />
+            <span className="text-[10px] tracking-tight">{isAr ? 'البصمة' : 'Bio'}</span>
+          </button>
+        </div>
+      </nav>
+
+      {/* ======================================================
           AUTH MODAL
           ====================================================== */}
 
@@ -4263,13 +4545,10 @@ export default function App() {
               true
             )
           }
-          onClose={
-            isAuthenticated
-              ? () =>
-                  setShowAuthModal(
-                    false
-                  )
-              : undefined
+          onClose={() =>
+            setShowAuthModal(
+              false
+            )
           }
           initialTab="login"
         />

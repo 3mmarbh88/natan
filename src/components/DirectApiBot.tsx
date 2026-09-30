@@ -1202,14 +1202,14 @@ export const DirectApiBot: React.FC<
           </div>
 
 
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
 
             <button
               onClick={
                 handleToggleBot
               }
               disabled={isLoading}
-              className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all shadow-lg ${
+              className={`flex items-center justify-center gap-2 px-5 py-3 min-h-[46px] rounded-xl text-xs sm:text-sm font-black transition-all shadow-lg active:scale-95 w-full sm:w-auto ${
                 isBotRunning
                   ? "bg-rose-500 hover:bg-rose-600 text-white"
                   : "bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white"
@@ -1236,7 +1236,7 @@ export const DirectApiBot: React.FC<
                 handleManualApiTest
               }
               disabled={isLoading}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 text-xs font-bold disabled:opacity-50"
+              className="flex items-center justify-center gap-2 px-5 py-3 min-h-[46px] rounded-xl bg-slate-800 hover:bg-slate-700 text-purple-300 border border-purple-500/30 text-xs sm:text-sm font-bold disabled:opacity-50 active:scale-95 w-full sm:w-auto"
             >
 
               <RefreshCw

@@ -44,53 +44,53 @@ export const SpeedEngineConfig: React.FC<SpeedEngineConfigProps> = ({
         <label className="text-xs font-semibold text-slate-300 block">
           {isAr ? 'أوضاع السرعة المسبقة:' : 'Speed Presets:'}
         </label>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           <button
             type="button"
             onClick={() => onUpdateSettings({ speedMode: 'ultra', scanIntervalMs: 50, humanJitterMs: 10 })}
-            className={`p-2.5 sm:p-3 rounded-xl border text-right transition-all cursor-pointer active:scale-95 ${
+            className={`p-3.5 sm:p-4 min-h-[64px] rounded-xl border text-right transition-all cursor-pointer active:scale-95 flex flex-col justify-between ${
               settings.speedMode === 'ultra'
-                ? 'bg-purple-500/15 border-purple-500 text-purple-300 ring-1 ring-purple-500/40'
-                : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800'
+                ? 'bg-purple-500/15 border-purple-500 text-purple-300 ring-2 ring-purple-500/40 shadow-lg shadow-purple-500/15'
+                : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
             }`}
           >
-            <div className="flex items-center justify-between mb-1">
-              <span className="font-bold text-xs">{isAr ? '⚡ فائق (Ultra)' : '⚡ Ultra'}</span>
-              <span className="text-[10px] font-mono bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded">50ms</span>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="font-black text-xs sm:text-sm text-white">{isAr ? '⚡ فائق (Ultra)' : '⚡ Ultra'}</span>
+              <span className="text-[11px] font-mono font-bold bg-purple-500/25 text-purple-300 px-2 py-0.5 rounded-full border border-purple-500/30">50ms</span>
             </div>
-            <p className="text-[11px] text-slate-400">{isAr ? 'أسرع ما يمكن لاقتناص شفتات الفلاش لحظة نزولها.' : 'Maximum speed for capturing instant flash drops.'}</p>
+            <p className="text-[11px] sm:text-xs text-slate-400">{isAr ? 'أسرع ما يمكن لاقتناص شفتات الفلاش لحظة نزولها.' : 'Maximum speed for capturing instant flash drops.'}</p>
           </button>
 
           <button
             type="button"
             onClick={() => onUpdateSettings({ speedMode: 'turbo', scanIntervalMs: 100, humanJitterMs: 20 })}
-            className={`p-2.5 sm:p-3 rounded-xl border text-right transition-all cursor-pointer active:scale-95 ${
+            className={`p-3.5 sm:p-4 min-h-[64px] rounded-xl border text-right transition-all cursor-pointer active:scale-95 flex flex-col justify-between ${
               settings.speedMode === 'turbo'
-                ? 'bg-indigo-500/15 border-indigo-500 text-indigo-300 ring-1 ring-indigo-500/40'
-                : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800'
+                ? 'bg-indigo-500/15 border-indigo-500 text-indigo-300 ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-500/15'
+                : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
             }`}
           >
-            <div className="flex items-center justify-between mb-1">
-              <span className="font-bold text-xs">{isAr ? '🚀 توربو (Turbo)' : '🚀 Turbo'}</span>
-              <span className="text-[10px] font-mono bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded">100ms</span>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="font-black text-xs sm:text-sm text-white">{isAr ? '🚀 توربو (Turbo)' : '🚀 Turbo'}</span>
+              <span className="text-[11px] font-mono font-bold bg-indigo-500/25 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30">100ms</span>
             </div>
-            <p className="text-[11px] text-slate-400">{isAr ? 'التوازن المثالي بين سرعة الالتقاط وثبات الاتصال.' : 'Ideal balance between capture speed and connection stability.'}</p>
+            <p className="text-[11px] sm:text-xs text-slate-400">{isAr ? 'التوازن المثالي بين سرعة الالتقاط وثبات الاتصال.' : 'Ideal balance between capture speed and connection stability.'}</p>
           </button>
 
           <button
             type="button"
             onClick={() => onUpdateSettings({ speedMode: 'stealth', scanIntervalMs: 250, humanJitterMs: 40 })}
-            className={`p-2.5 sm:p-3 rounded-xl border text-right transition-all cursor-pointer active:scale-95 ${
+            className={`p-3.5 sm:p-4 min-h-[64px] rounded-xl border text-right transition-all cursor-pointer active:scale-95 flex flex-col justify-between ${
               settings.speedMode === 'stealth'
-                ? 'bg-emerald-500/15 border-emerald-500 text-emerald-300 ring-1 ring-emerald-500/40'
-                : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800'
+                ? 'bg-emerald-500/15 border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/40 shadow-lg shadow-emerald-500/15'
+                : 'bg-slate-800/40 border-slate-700/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
             }`}
           >
-            <div className="flex items-center justify-between mb-1">
-              <span className="font-bold text-xs">{isAr ? '🛡️ متخفي (Stealth)' : '🛡️ Stealth'}</span>
-              <span className="text-[10px] font-mono bg-emerald-500/20 px-1.5 py-0.5 rounded">250ms</span>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="font-black text-xs sm:text-sm text-white">{isAr ? '🛡️ متخفي (Stealth)' : '🛡️ Stealth'}</span>
+              <span className="text-[11px] font-mono font-bold bg-emerald-500/25 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30">250ms</span>
             </div>
-            <p className="text-[11px] text-slate-400">{isAr ? 'محاكاة سلوك بشري كامل بنقرات عشوائية طبيعية.' : 'Full human-like simulation with organic randomized taps.'}</p>
+            <p className="text-[11px] sm:text-xs text-slate-400">{isAr ? 'محاكاة سلوك بشري كامل بنقرات عشوائية طبيعية.' : 'Full human-like simulation with organic randomized taps.'}</p>
           </button>
         </div>
       </div>
@@ -249,10 +249,10 @@ export const SpeedEngineConfig: React.FC<SpeedEngineConfigProps> = ({
                 haptics.vibrateCapture();
                 soundFX.playSuccess();
               }}
-              className="text-[11px] px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 font-bold transition-all cursor-pointer flex items-center gap-1"
+              className="min-h-[42px] px-3.5 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/40 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
               title={isAr ? "تجربة الاهتزاز والصوت على هذا الهاتف" : "Test vibration and sound on this device"}
             >
-              <Vibrate className="w-3.5 h-3.5" />
+              <Vibrate className="w-4 h-4 text-purple-300" />
               <span>{isAr ? 'تجربة الاهتزاز' : 'Test Haptic'}</span>
             </button>
             <input

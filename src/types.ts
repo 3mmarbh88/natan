@@ -320,7 +320,7 @@ export interface AppAuthSession {
   /*
    * مفتاح/معرف الترخيص إن كان موجوداً.
    */
-  licenseKey: string;
+  licenseKey?: string | null;
 
   /*
    * اسم الخطة.

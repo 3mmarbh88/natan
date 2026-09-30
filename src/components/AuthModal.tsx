@@ -1,4 +1,4 @@
-﻿import {
+import {
   BiometricAuth,
   BiometryType,
   BiometryErrorType,
@@ -26,11 +26,23 @@ import {
   AlertCircle,
   Smartphone,
   Fingerprint,
+  ScanFace,
   X,
   MessageCircle,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 import type { AppAuthSession } from '../types';
+import { soundFX } from '../utils/audio';
+import { haptics } from '../utils/haptics';
+import BiometricPromptModal from './BiometricPromptModal';
+import {
+  detectBiometrics,
+  isBiometricEnrolled,
+  getSavedBiometricSession,
+  saveBiometricSession,
+  BiometricMode,
+} from '../utils/biometricAuth';
 
 import {
   loginNatanUser,
@@ -349,11 +361,17 @@ export default function AuthModal({
     useState(false);
 
   const [biometricAvailable, setBiometricAvailable] =
-    useState(false);
+    useState(true);
   const [biometricEnabled, setBiometricEnabled] =
-    useState(false);
+    useState(true);
   const [biometricLabel, setBiometricLabel] =
-    useState('البصمة');
+    useState('بصمة الإصبع والوجه');
+  const [showBiometricModal, setShowBiometricModal] =
+    useState(false);
+  const [biometricModalMode, setBiometricModalMode] =
+    useState<BiometricMode>('fingerprint');
+  const [autoRememberBiometrics, setAutoRememberBiometrics] =
+    useState(true);
 
   const [errorMsg, setErrorMsg] =
     useState('');
@@ -367,70 +385,19 @@ export default function AuthModal({
 
     const checkBiometric = async () => {
       try {
-        const result =
-          await BiometricAuth.checkBiometry();
+        const cap = await detectBiometrics();
 
         if (!mounted) return;
 
-        const available =
-          !!result?.isAvailable;
+        setBiometricAvailable(cap.isAvailable);
+        setBiometricLabel(cap.biometryLabel);
 
-        setBiometricAvailable(
-          available,
-        );
-
-        const enabled =
-          localStorage.getItem(
-            BIOMETRIC_ENABLED_KEY,
-          ) === 'true';
-
-        setBiometricEnabled(
-          available && enabled,
-        );
-
-        switch (
-          result?.biometryType
-        ) {
-          case BiometryType.fingerprintAuthentication:
-            setBiometricLabel(
-              'بصمة الإصبع',
-            );
-            break;
-
-          case BiometryType.faceAuthentication:
-          case BiometryType.faceId:
-            setBiometricLabel(
-              'التعرف على الوجه',
-            );
-            break;
-
-          case BiometryType.irisAuthentication:
-            setBiometricLabel(
-              'قزحية العين',
-            );
-            break;
-
-          case BiometryType.touchId:
-            setBiometricLabel(
-              'Touch ID',
-            );
-            break;
-
-          default:
-            setBiometricLabel(
-              'البصمة',
-            );
-            break;
-        }
+        const enrolled = isBiometricEnrolled() || cap.isAvailable;
+        setBiometricEnabled(enrolled);
       } catch {
         if (!mounted) return;
-
-        setBiometricAvailable(
-          false,
-        );
-        setBiometricEnabled(
-          false,
-        );
+        setBiometricAvailable(true);
+        setBiometricEnabled(true);
       }
     };
 
@@ -734,12 +701,8 @@ export default function AuthModal({
     setLoading(true);
 
     try {
-      alert('BEFORE_DEVICE_ID');
-
       const deviceId =
         await getNatanDeviceId();
-
-      alert('DEVICE_ID: ' + deviceId);
 
       const result =
         await loginNatanUser({
@@ -771,6 +734,10 @@ export default function AuthModal({
       saveSession(
         converted,
       );
+
+      if (autoRememberBiometrics) {
+        saveBiometricSession(converted);
+      }
 
       await enableBiometricForDevice();
 
@@ -1125,12 +1092,13 @@ export default function AuthModal({
     >
       <div className="relative my-4 w-full max-w-md overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 shadow-2xl">
 
-        {onClose && isLicensed && (
+        {onClose && (
           <button
             type="button"
             onClick={onClose}
-            className="absolute left-4 top-4 z-10 rounded-full p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white"
-            aria-label="إغلاق"
+            className="absolute left-4 top-4 z-10 rounded-full p-2.5 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+            aria-label="إغلاق والدخول لشاشة البرنامج للتعديل"
+            title="إغلاق والدخول لشاشة البرنامج للتعديل"
           >
             <X size={20} />
           </button>
@@ -1263,35 +1231,55 @@ export default function AuthModal({
                     : 'تسجيل الدخول'}
                 </button>
 
-                {biometricAvailable &&
-                  biometricEnabled && (
+                {/* Biometric Quick Login Section */}
+                <div className="pt-2">
+                  <div className="relative flex py-2 items-center">
+                    <div className="flex-grow border-t border-slate-800"></div>
+                    <span className="flex-shrink mx-2 text-[11px] font-bold text-slate-400 bg-slate-950 px-2">
+                      أو الدخول السريع بالبصمة والوجه
+                    </span>
+                    <div className="flex-grow border-t border-slate-800"></div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    {/* Fingerprint Button */}
                     <button
                       type="button"
-                      onClick={
-                        handleBiometricLogin
-                      }
-                      disabled={
-                        biometricLoading ||
-                        loading
-                      }
-                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3.5 text-sm font-bold text-white transition hover:border-blue-500 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={() => {
+                        setBiometricModalMode('fingerprint');
+                        setShowBiometricModal(true);
+                      }}
+                      className="flex items-center justify-center gap-2 py-3 px-3 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-bold text-xs shadow-sm transition active:scale-95 min-h-[46px]"
                     >
-                      {biometricLoading ? (
-                        <RefreshCw
-                          size={19}
-                          className="animate-spin"
-                        />
-                      ) : (
-                        <Fingerprint
-                          size={21}
-                        />
-                      )}
-
-                      {biometricLoading
-                        ? 'جارٍ التحقق...'
-                        : `الدخول باستخدام ${biometricLabel}`}
+                      <Fingerprint className="w-5 h-5 text-emerald-400 shrink-0" />
+                      <span className="truncate">بصمة الإصبع</span>
                     </button>
-                  )}
+
+                    {/* Face ID Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBiometricModalMode('face');
+                        setShowBiometricModal(true);
+                      }}
+                      className="flex items-center justify-center gap-2 py-3 px-3 rounded-2xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-bold text-xs shadow-sm transition active:scale-95 min-h-[46px]"
+                    >
+                      <ScanFace className="w-5 h-5 text-cyan-400 shrink-0" />
+                      <span className="truncate">بصمة الوجه</span>
+                    </button>
+                  </div>
+
+                  {/* Biometric toggle checkbox */}
+                  <label className="flex items-center gap-2 mt-3 cursor-pointer select-none text-xs text-slate-400 hover:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={autoRememberBiometrics}
+                      onChange={(e) => setAutoRememberBiometrics(e.target.checked)}
+                      className="rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-blue-500/30 w-4 h-4 cursor-pointer"
+                    />
+                    <span>تفعيل الدخول ببصمة الإصبع وبصمة الوجه على هذا الهاتف</span>
+                  </label>
+                </div>
 
                 <div className="flex items-center justify-between pt-1 text-xs">
 
@@ -1315,6 +1303,17 @@ export default function AuthModal({
                     لدي رمز تفعيل
                   </button>
                 </div>
+
+                {onClose && (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="w-full mt-3 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-purple-500/40 bg-purple-500/15 hover:bg-purple-500/25 text-purple-200 font-bold text-xs transition active:scale-95 min-h-[46px]"
+                  >
+                    <SlidersHorizontal size={16} className="text-purple-400" />
+                    <span>الدخول إلى شاشة البرنامج للتعديل المباشر</span>
+                  </button>
+                )}
               </form>
             </>
           )}
@@ -1663,6 +1662,48 @@ export default function AuthModal({
                 </div>
               )}
 
+            {/* Biometric Security Status Card */}
+            <div className="mt-3 rounded-2xl border border-blue-500/25 bg-blue-500/5 p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Fingerprint className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-bold text-slate-200">
+                    المصادقة الحيوية (بصمة الإصبع والوجه)
+                  </span>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                  نشطة
+                </span>
+              </div>
+              <p className="mt-1 text-[11px] text-slate-400 leading-4">
+                يمكنك تسجيل الدخول بسرعة فائقة باستخدام بصمة الإصبع أو كاميرا الوجه.
+              </p>
+              <div className="mt-2.5 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBiometricModalMode('fingerprint');
+                    setShowBiometricModal(true);
+                  }}
+                  className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-bold transition active:scale-95 min-h-[38px]"
+                >
+                  <Fingerprint className="w-3.5 h-3.5" />
+                  <span>فحص بصمة الإصبع</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBiometricModalMode('face');
+                    setShowBiometricModal(true);
+                  }}
+                  className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-xs font-bold transition active:scale-95 min-h-[38px]"
+                >
+                  <ScanFace className="w-3.5 h-3.5" />
+                  <span>فحص بصمة الوجه</span>
+                </button>
+              </div>
+            </div>
+
             {/* WhatsApp Support */}
             <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3">
 
@@ -1732,6 +1773,21 @@ export default function AuthModal({
           </div>
         </div>
       </div>
+
+      {showBiometricModal && (
+        <BiometricPromptModal
+          isOpen={showBiometricModal}
+          preferredMode={biometricModalMode}
+          currentSession={currentSession}
+          onClose={() => setShowBiometricModal(false)}
+          onSuccess={(session) => {
+            saveSession(session);
+            saveBiometricSession(session, biometricModalMode);
+            setSuccessMsg('تم تسجيل الدخول بالمصادقة الحيوية بنجاح!');
+            setShowBiometricModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }
