@@ -22,14 +22,14 @@ export const NatanLogo: React.FC<NatanLogoProps> = ({
 
   return (
     <div
-      className={`relative shrink-0 rounded-2xl select-none transition-transform hover:scale-105 duration-200 overflow-hidden shadow-lg shadow-purple-950/40 border border-slate-200/40 bg-white p-1 flex items-center justify-center ${
+      className={`relative shrink-0 rounded-2xl select-none transition-transform hover:scale-105 duration-200 overflow-hidden shadow-lg shadow-purple-950/60 border border-purple-500/30 bg-slate-900/80 p-0.5 flex items-center justify-center ${
         sizeClasses[size]
-      } ${withGlow ? 'drop-shadow-[0_0_16px_rgba(255,255,255,0.35)]' : ''} ${className}`}
+      } ${withGlow ? 'drop-shadow-[0_0_16px_rgba(168,85,247,0.35)]' : ''} ${className}`}
     >
       <img
         src="/app-icon.png"
         alt="NATAN Ninja Shifts Logo"
-        className="w-full h-full object-contain rounded-xl"
+        className="w-full h-full object-cover rounded-[14px]"
         referrerPolicy="no-referrer"
       />
     </div>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { MapPin, Calendar, Clock, Sparkles, Check, Building2, Flame, AlertCircle, Hash, Plus, X, Layers, Timer, Zap } from 'lucide-react';
 import { BookingSettings, ShiftWindow } from '../types';
-import { SAUDI_CITIES, DAYS_OF_WEEK } from '../data/saudiCities';
+import { SAUDI_CITIES, DAYS_OF_WEEK, SAUDI_CITY_COORDINATES } from '../data/saudiCities';
 import { useLanguage } from '../utils/i18n';
 
 interface CriteriaEditorProps {
@@ -104,6 +104,7 @@ export const CriteriaEditor: React.FC<CriteriaEditorProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
           {SAUDI_CITIES.map((city) => {
             const isSelected = settings.selectedCity === city.id;
+            const coords = SAUDI_CITY_COORDINATES[city.id];
             return (
               <button
                 key={city.id}
@@ -112,6 +113,9 @@ export const CriteriaEditor: React.FC<CriteriaEditorProps> = ({
                   onUpdateSettings({
                     selectedCity: city.id,
                     selectedDistricts: [], // reset or select all
+                    selectedLatitude: coords ? coords.lat : settings.selectedLatitude,
+                    selectedLongitude: coords ? coords.lng : settings.selectedLongitude,
+                    selectedLocationLabel: coords ? `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}` : settings.selectedLocationLabel,
                   });
                 }}
                 className={`min-h-[52px] py-2.5 px-3 rounded-xl border text-center transition-all cursor-pointer active:scale-95 flex flex-col items-center justify-center ${

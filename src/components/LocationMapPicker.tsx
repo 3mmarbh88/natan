@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LocateFixed, Minus, Plus, MapPin, Navigation, Loader2, Smartphone, Square, Settings2 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { NatanAutomation } from '../utils/natanAutomation';
+import { SAUDI_CITIES, SAUDI_CITY_COORDINATES } from '../data/saudiCities';
 
 type LatLng = { lat: number; lng: number };
 
@@ -205,6 +206,15 @@ export const LocationMapPicker: React.FC<LocationMapPickerProps> = ({ value, onC
     }
   };
 
+  const jumpToCity = (cityId: string) => {
+    const coords = SAUDI_CITY_COORDINATES[cityId];
+    if (!coords) return;
+    centerRef.current = coords;
+    setCenter(coords);
+    setZoom(13);
+    onChange(coords);
+  };
+
   const selected = value || center;
   const selectedPx = project(selected, zoom);
   const centerPx = project(center, zoom);
@@ -213,9 +223,35 @@ export const LocationMapPicker: React.FC<LocationMapPickerProps> = ({ value, onC
 
   return (
     <div className="rounded-2xl overflow-hidden border border-slate-700 bg-slate-950 shadow-2xl">
+      {/* Quick Saudi Cities Bar */}
+      <div className="p-3 bg-slate-900/95 border-b border-slate-800 flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none">
+        <span className="text-[11px] font-black text-cyan-400 whitespace-nowrap shrink-0 flex items-center gap-1">
+          <MapPin className="w-3.5 h-3.5" />
+          {isAr ? 'المدن السريعة:' : 'Quick Cities:'}
+        </span>
+        {SAUDI_CITIES.map((c) => {
+          const coords = SAUDI_CITY_COORDINATES[c.id];
+          const isCurrent = coords && value && Math.hypot(coords.lat - value.lat, coords.lng - value.lng) < 0.18;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => jumpToCity(c.id)}
+              className={`shrink-0 px-2.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer active:scale-95 flex items-center gap-1.5 ${
+                isCurrent
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-sm shadow-cyan-500/20 ring-1 ring-cyan-400/30'
+                  : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700'
+              }`}
+            >
+              <span>🇸🇦 {isAr ? c.name : c.nameEn}</span>
+            </button>
+          );
+        })}
+      </div>
+
       <div
         ref={containerRef}
-        className="relative h-[390px] sm:h-[460px] overflow-hidden select-none touch-none cursor-grab active:cursor-grabbing bg-slate-900"
+        className="relative h-[360px] sm:h-[440px] overflow-hidden select-none touch-none cursor-grab active:cursor-grabbing bg-slate-900"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

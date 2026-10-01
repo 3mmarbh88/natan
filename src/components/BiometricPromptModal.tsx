@@ -162,7 +162,7 @@ export default function BiometricPromptModal({
         {/* Header */}
         <div className="text-center mt-2 mb-6">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-xs font-bold text-slate-300 mb-2">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <Fingerprint className="w-3.5 h-3.5 text-emerald-400" />
             <span>نظام الأمان الحيوي NATAN</span>
           </div>
           <h3 className="text-xl font-black text-white">
