@@ -22,6 +22,9 @@ import java.util.Locale;
 import java.util.Set;
 
 public class NatanAccessibilityService extends AccessibilityService {
+    private static volatile String lastScreenSnapshot = "";
+
+    public static String getLastScreenSnapshot() { return lastScreenSnapshot; }
     private static final String TAG = "NATAN_AUTOMATION";
     private static final String NINJA_PACKAGE = NatanAutomationPlugin.TARGET_PACKAGE;
     private static final long STEP_MS = 320L;
@@ -94,6 +97,14 @@ public class NatanAccessibilityService extends AccessibilityService {
         }
     }
 
+    private JSONObject criteria() {
+        try {
+            return new JSONObject(prefs().getString("criteria_json", "{}"));
+        } catch (Exception e) {
+            return new JSONObject();
+        }
+    }
+
     private void inspectAndAct() {
         if (!isRunning()) return;
         AccessibilityNodeInfo root = getRootInActiveWindow();
@@ -102,6 +113,7 @@ public class NatanAccessibilityService extends AccessibilityService {
         if (pkg != null && !NINJA_PACKAGE.contentEquals(pkg)) return;
 
         String allText = collectText(root);
+        lastScreenSnapshot = allText;
         String lower = normalize(allText);
 
         if (containsAny(lower, Arrays.asList("shift booked successfully", "shift booked", "تم حجز المناوبة بنجاح", "تم حجز المناوبة", "اكتمل الحجز"))) {
@@ -117,7 +129,8 @@ public class NatanAccessibilityService extends AccessibilityService {
         }
 
         JSONObject t = target();
-        if (hasConfirmDialog(lower)) {
+        JSONObject criteria = criteria();
+        if (hasConfirmDialog(lower) && (!criteria.has("autoConfirmDialog") || criteria.optBoolean("autoConfirmDialog", true))) {
             AccessibilityNodeInfo confirm = findClickableByLabels(root, Arrays.asList("confirm", "ok", "yes", "تأكيد", "موافق", "نعم", "تآكيد"));
             if (confirm != null && performClick(confirm, "confirm")) {
                 setStatus("confirming", "Confirm pressed; waiting for Ninja success confirmation");
@@ -125,7 +138,9 @@ public class NatanAccessibilityService extends AccessibilityService {
             }
         }
 
-        AccessibilityNodeInfo targetCard = findMatchingShiftCard(root, t);
+        AccessibilityNodeInfo targetCard = criteria.length() > 0
+                ? findMatchingShiftCardByCriteria(root, criteria)
+                : findMatchingShiftCard(root, t);
         if (targetCard != null) {
             AccessibilityNodeInfo book = findClickableByLabels(targetCard, Arrays.asList("book shift", "book", "حجز فترة الدوام", "حجز دوام", "احجز دوام", "احجز", "حجز"));
             if (book == null) book = findClickableNode(targetCard);
@@ -196,6 +211,92 @@ public class NatanAccessibilityService extends AccessibilityService {
             }
         }
         return best;
+    }
+
+    private AccessibilityNodeInfo findMatchingShiftCardByCriteria(AccessibilityNodeInfo root, JSONObject c) {
+        List<AccessibilityNodeInfo> candidates = new ArrayList<>();
+        collectNodes(root, candidates);
+        String city = normalize(c.optString("cityLabel", ""));
+        String districts = normalize(c.optString("districts", ""));
+        String branchNumbers = normalize(c.optString("branchNumbers", ""));
+        String days = normalize(c.optString("days", ""));
+        String startWindow = normalizeTime(c.optString("startTime", "00:00"));
+        String endWindow = normalizeTime(c.optString("endTime", "23:59"));
+        double minHours = c.optDouble("minDurationHours", 0);
+        double maxHours = c.optDouble("maxDurationHours", 99);
+        boolean onlyPeak = c.optBoolean("onlyPeakHours", false);
+
+        AccessibilityNodeInfo best = null;
+        int bestScore = 0;
+        for (AccessibilityNodeInfo node : candidates) {
+            String text = normalize(collectText(node));
+            if (text.length() < 10 || !hasBookLabel(text)) continue;
+            if (containsAny(text, Arrays.asList("unavailable", "not available", "fully booked", "already booked", "expired", "completed", "cancelled", "canceled", "no longer available", "غير متاح", "غير متاحة", "مكتمل", "منتهي", "محجوز", "انتهت", "ملغي", "ملغى", "اكتمل الحجز"))) continue;
+
+            int score = 0;
+            if (!city.isEmpty() && containsToken(text, city)) score += 3;
+            if (!districts.isEmpty() && containsToken(text, districts)) score += 5;
+            if (!branchNumbers.isEmpty() && containsToken(text, branchNumbers)) score += 5;
+
+            int[] pair = extractTimePair(text);
+            if (pair != null) {
+                double hours = durationHours(pair[0], pair[1]);
+                if (hours < minHours || hours > maxHours) continue;
+                if (withinWindow(pair[0], startWindow, endWindow)) score += 3;
+                else continue;
+                if (withinWindow(pair[1], startWindow, endWindow)) score += 1;
+            } else if (minHours > 0 || maxHours < 99 || !"00:00".equals(startWindow) || !"23:59".equals(endWindow)) {
+                continue;
+            }
+
+            if (!days.isEmpty() && containsToken(text, days)) score += 3;
+            if (onlyPeak) {
+                if (containsAny(text, Arrays.asList("peak", "ذروة", "مميز", "prime"))) score += 2;
+                else continue;
+            }
+            score += 1; // book button
+            if (score >= 6 && score > bestScore) {
+                best = node;
+                bestScore = score;
+            }
+        }
+        return best;
+    }
+
+    private boolean hasBookLabel(String text) {
+        return containsAny(text, Arrays.asList("book shift", "book", "حجز فترة الدوام", "حجز دوام", "احجز دوام", "احجز", "حجز"));
+    }
+
+    private boolean containsToken(String text, String csv) {
+        if (csv == null || csv.trim().isEmpty()) return false;
+        for (String token : csv.split("\\|")) {
+            String t = normalize(token);
+            if (!t.isEmpty() && text.contains(t)) return true;
+        }
+        return false;
+    }
+
+    private int[] extractTimePair(String text) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?<!\\d)([01]?\\d|2[0-3])[:.]([0-5]\\d)\\s*(?:-|–|—|to|الى|إلى)\\s*([01]?\\d|2[0-3])[:.]([0-5]\\d)(?!\\d)").matcher(text);
+        if (!m.find()) return null;
+        return new int[]{Integer.parseInt(m.group(1))*60 + Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3))*60 + Integer.parseInt(m.group(4))};
+    }
+
+    private double durationHours(int start, int end) {
+        int d = end - start;
+        if (d < 0) d += 24 * 60;
+        return d / 60.0;
+    }
+
+    private boolean withinWindow(int minutes, String start, String end) {
+        int a = toMinutes(start), b = toMinutes(end);
+        if (a <= b) return minutes >= a && minutes <= b;
+        return minutes >= a || minutes <= b;
+    }
+
+    private int toMinutes(String value) {
+        try { String[] p = value.split(":"); return Integer.parseInt(p[0])*60 + Integer.parseInt(p[1]); }
+        catch (Exception e) { return 0; }
     }
 
     private AccessibilityNodeInfo findClickableByLabels(AccessibilityNodeInfo root, List<String> labels) {

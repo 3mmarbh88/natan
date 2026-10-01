@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 path = Path(r".\src\App.tsx")
 text = path.read_text(encoding="utf-8")

@@ -1,4 +1,4 @@
-﻿// src/utils/ninjaShiftMapper.ts
+// src/utils/ninjaShiftMapper.ts
 
 import type {
   NinjaShift,

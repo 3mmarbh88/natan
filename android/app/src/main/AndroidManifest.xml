@@ -13,7 +13,7 @@
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <queries>
-        <package android:name="com.mehedydev.nova" />
+        <package android:name="delivery.samurai.android" />
     </queries>
 
     <application

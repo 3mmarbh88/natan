@@ -19,6 +19,7 @@ export interface NatanAutomationStatus {
 
 interface NatanAutomationPlugin {
   startNinjaAutomation(options: { targetJson: string }): Promise<NatanAutomationStatus>;
+  startNinjaAutoBooking(options: { criteriaJson: string }): Promise<NatanAutomationStatus>;
   getAutomationStatus(): Promise<NatanAutomationStatus>;
   stopNinjaAutomation(): Promise<NatanAutomationStatus>;
   openAccessibilitySettings(): Promise<void>;
@@ -28,6 +29,7 @@ interface NatanAutomationPlugin {
   stopMockLocation(): Promise<NatanMockLocationStatus>;
   getMockLocationStatus(): Promise<NatanMockLocationStatus>;
   openMockLocationSettings(): Promise<void>;
+  getNinjaScreenSnapshot(): Promise<{ packageName: string; text: string; timestamp: number }>;
 }
 
 export const NatanAutomation = registerPlugin<NatanAutomationPlugin>('NatanAutomation');
@@ -66,4 +68,22 @@ export async function setNatanDeviceLocation(latitude: number, longitude: number
 export async function stopNatanDeviceLocation(): Promise<NatanMockLocationStatus> {
   if (!isNatanNativeAndroid()) throw new Error('Android Mock Location is available only in the Android app.');
   return NatanAutomation.stopMockLocation();
+}
+
+
+export async function getNinjaScreenSnapshot() {
+  if (!isNatanNativeAndroid()) {
+    throw new Error('Ninja screen reading is available only in the Android app.');
+  }
+  return NatanAutomation.getNinjaScreenSnapshot();
+}
+
+
+export async function startNinjaAutoBooking(criteria: unknown): Promise<NatanAutomationStatus> {
+  if (!isNatanNativeAndroid()) {
+    throw new Error('Ninja auto booking is available only in the Android app.');
+  }
+  return NatanAutomation.startNinjaAutoBooking({
+    criteriaJson: JSON.stringify(criteria),
+  });
 }

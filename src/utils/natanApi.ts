@@ -1,4 +1,4 @@
-﻿import { AppAuthSession } from '../types';
+import { AppAuthSession } from '../types';
 
 // ============================================================
 // NATAN API CONFIG

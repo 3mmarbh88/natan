@@ -25,10 +25,50 @@ public class NatanAutomationPlugin extends Plugin {
     public static final String STATUS = "status";
     public static final String DETAIL = "detail";
     public static final String LAST_UPDATE = "last_update";
-    public static final String TARGET_PACKAGE = "com.mehedydev.nova";
+    public static final String TARGET_PACKAGE = "delivery.samurai.android";
 
     private SharedPreferences prefs() {
         return getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    @PluginMethod
+    public void startNinjaAutoBooking(PluginCall call) {
+        String criteria = call.getString("criteriaJson", "");
+        if (criteria.trim().isEmpty()) {
+            call.reject("Missing auto-booking criteria");
+            return;
+        }
+
+        prefs().edit()
+                .putString("criteria_json", criteria)
+                .putBoolean(RUNNING, true)
+                .putString(STATUS, "starting")
+                .putString(DETAIL, "Starting Ninja auto-booker with configured NATAN conditions")
+                .putLong(LAST_UPDATE, System.currentTimeMillis())
+                .apply();
+
+        if (!isAccessibilityEnabled()) {
+            prefs().edit()
+                    .putString(STATUS, "accessibility_required")
+                    .putString(DETAIL, "Enable NATAN Accessibility Service")
+                    .putLong(LAST_UPDATE, System.currentTimeMillis())
+                    .apply();
+            call.resolve(statusObject());
+            return;
+        }
+
+        Intent launch = getContext().getPackageManager().getLaunchIntentForPackage(TARGET_PACKAGE);
+        if (launch == null) {
+            prefs().edit().putBoolean(RUNNING, false)
+                    .putString(STATUS, "ninja_not_installed")
+                    .putString(DETAIL, "Ninja application was not found")
+                    .putLong(LAST_UPDATE, System.currentTimeMillis()).apply();
+            call.resolve(statusObject());
+            return;
+        }
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        getContext().startActivity(launch);
+        call.resolve(statusObject());
     }
 
     @PluginMethod
@@ -41,6 +81,7 @@ public class NatanAutomationPlugin extends Plugin {
 
         prefs().edit()
                 .putString(TARGET_JSON, target)
+                .putString("criteria_json", "{}")
                 .putBoolean(RUNNING, true)
                 .putString(STATUS, "starting")
                 .putString(DETAIL, "Starting Ninja automation with verified Ninja UI flow")
@@ -75,6 +116,20 @@ public class NatanAutomationPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void getNinjaScreenSnapshot(PluginCall call) {
+        if (!isAccessibilityEnabled()) {
+            call.reject("NATAN Accessibility Service is not enabled");
+            return;
+        }
+        String snapshot = NatanAccessibilityService.getLastScreenSnapshot();
+        JSObject ret = new JSObject();
+        ret.put("packageName", TARGET_PACKAGE);
+        ret.put("text", snapshot == null ? "" : snapshot);
+        ret.put("timestamp", System.currentTimeMillis());
+        call.resolve(ret);
+    }
+
+    @PluginMethod
     public void getAutomationStatus(PluginCall call) {
         call.resolve(statusObject());
     }
@@ -83,6 +138,7 @@ public class NatanAutomationPlugin extends Plugin {
     public void stopNinjaAutomation(PluginCall call) {
         prefs().edit()
                 .putBoolean(RUNNING, false)
+                .putString("criteria_json", "{}")
                 .putString(STATUS, "stopped")
                 .putString(DETAIL, "Automation stopped")
                 .putLong(LAST_UPDATE, System.currentTimeMillis())

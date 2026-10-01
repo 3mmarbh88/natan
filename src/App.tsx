@@ -1436,6 +1436,68 @@ export default function App() {
 
   /*
    * ============================================================
+   * NATIVE NINJA AUTO BOOKER
+   * ============================================================
+   * This path does not copy Ninja credentials or call protected
+   * Ninja APIs. It uses the user's normal Ninja session and the
+   * Android Accessibility service to inspect and operate the UI.
+   */
+  useEffect(() => {
+    if (!isLicensed || !settings.monitoring || !settings.autoBooking) return;
+    if (settings.bookingMode === 'direct_api') return;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const run = async () => {
+      try {
+        const { startNinjaAutoBooking, NatanAutomation, isNatanNativeAndroid } =
+          await import('./utils/natanAutomation');
+        if (!isNatanNativeAndroid() || cancelled) return;
+
+        const city = SAUDI_CITIES.find((c) => c.id === settings.selectedCity);
+        const criteria = {
+          cityLabel: city ? `${city.name}|${city.nameEn}` : '',
+          districts: settings.selectedDistricts.join('|'),
+          branchNumbers: (settings.branchKeywordNumbers || []).join('|'),
+          days: settings.selectedDays.join('|'),
+          startTime: settings.startTime || '00:00',
+          endTime: settings.endTime || '23:59',
+          minDurationHours: settings.minDurationHours,
+          maxDurationHours: settings.maxDurationHours,
+          onlyPeakHours: settings.onlyPeakHours,
+          autoConfirmDialog: settings.autoConfirmDialog,
+        };
+
+        const status = await NatanAutomation.getAutomationStatus();
+        if (!status.running) {
+          const started = await startNinjaAutoBooking(criteria);
+          if (started.status === 'accessibility_required') {
+            addLog('warning', isAr ? '⚙️ فعّل خدمة إمكانية الوصول في NATAN لتشغيل الحجز الآلي.' : '⚙️ Enable NATAN Accessibility Service to start auto booking.');
+            return;
+          }
+          if (started.status === 'ninja_not_installed') {
+            addLog('error', isAr ? '❌ تطبيق Ninja غير مثبت.' : '❌ Ninja is not installed.');
+            return;
+          }
+          addLog('info', isAr ? '🤖 Auto Booker يعمل داخل Ninja وفق الشروط المحددة.' : '🤖 Auto Booker is running inside Ninja using the configured criteria.');
+        }
+      } catch (e) {
+        if (!cancelled) addLog('error', `Auto Booker: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    };
+
+    void run();
+    timer = setInterval(() => { void run(); }, Math.max(3000, settings.refreshIntervalSec * 1000));
+
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
+    };
+  }, [isLicensed, settings.monitoring, settings.autoBooking, settings.bookingMode, settings.selectedCity, settings.selectedDistricts, settings.branchKeywordNumbers, settings.selectedDays, settings.startTime, settings.endTime, settings.minDurationHours, settings.maxDurationHours, settings.onlyPeakHours, settings.autoConfirmDialog, settings.refreshIntervalSec, isAr]);
+
+  /*
+   * ============================================================
    * AUTOMATIC MONITORING
    * ============================================================
    */
