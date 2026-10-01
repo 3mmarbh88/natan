@@ -30,11 +30,14 @@ import {
   X,
   MessageCircle,
   SlidersHorizontal,
+  Globe,
 } from 'lucide-react';
 
 import type { AppAuthSession } from '../types';
 import { soundFX } from '../utils/audio';
 import { haptics } from '../utils/haptics';
+import { useLanguage } from '../utils/i18n';
+import { NatanLogo } from './NatanLogo';
 import BiometricPromptModal from './BiometricPromptModal';
 import {
   detectBiometrics,
@@ -211,6 +214,7 @@ function Field({
   autoComplete,
   required = true,
 }: FieldProps) {
+  const { isAr } = useLanguage();
   const [showPassword, setShowPassword] =
     useState(false);
 
@@ -219,12 +223,16 @@ function Field({
 
   return (
     <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-slate-200">
+      <label className="block text-xs sm:text-sm font-semibold text-slate-200">
         {label}
       </label>
 
       <div className="relative">
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+        <div
+          className={`pointer-events-none absolute inset-y-0 ${
+            isAr ? 'right-0 pr-3.5' : 'left-0 pl-3.5'
+          } flex items-center text-slate-400`}
+        >
           {icon}
         </div>
 
@@ -242,8 +250,10 @@ function Field({
           disabled={disabled}
           autoComplete={autoComplete}
           required={required}
-          dir="rtl"
-          className="w-full rounded-xl border border-slate-700 bg-slate-900/80 py-3 pr-10 pl-11 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+          dir={isAr ? 'rtl' : 'ltr'}
+          className={`w-full min-h-[46px] rounded-xl border border-slate-700 bg-slate-900/90 py-3 ${
+            isAr ? 'pr-11 pl-11' : 'pl-11 pr-11'
+          } text-sm sm:text-base text-white outline-none transition placeholder:text-slate-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60`}
         />
 
         {isPassword && (
@@ -254,12 +264,14 @@ function Field({
                 (value) => !value,
               )
             }
-            className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 transition hover:text-white"
+            className={`absolute inset-y-0 ${
+              isAr ? 'left-0 pl-3' : 'right-0 pr-3'
+            } flex items-center text-slate-400 hover:text-white transition cursor-pointer min-w-[44px] min-h-[44px] justify-center active:scale-95`}
             tabIndex={-1}
             aria-label={
               showPassword
-                ? 'إخفاء كلمة المرور'
-                : 'إظهار كلمة المرور'
+                ? isAr ? 'إخفاء كلمة المرور' : 'Hide password'
+                : isAr ? 'إظهار كلمة المرور' : 'Show password'
             }
           >
             {showPassword ? (
@@ -285,14 +297,19 @@ function CodeField({
   onChange,
   disabled = false,
 }: CodeFieldProps) {
+  const { isAr } = useLanguage();
   return (
     <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-slate-200">
-        رمز التفعيل
+      <label className="block text-xs sm:text-sm font-semibold text-slate-200">
+        {isAr ? 'رمز التفعيل' : 'Activation Code'}
       </label>
 
       <div className="relative">
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+        <div
+          className={`pointer-events-none absolute inset-y-0 ${
+            isAr ? 'right-0 pr-3.5' : 'left-0 pl-3.5'
+          } flex items-center text-slate-400`}
+        >
           <KeyRound size={18} />
         </div>
 
@@ -305,13 +322,15 @@ function CodeField({
               ),
             )
           }
-          placeholder="أدخل رمز التفعيل"
+          placeholder={isAr ? 'أدخل رمز التفعيل' : 'Enter activation code'}
           disabled={disabled}
           required
           dir="ltr"
           inputMode="text"
           autoComplete="one-time-code"
-          className="w-full rounded-xl border border-slate-700 bg-slate-900/80 py-3 pr-10 pl-3 text-center text-base font-bold tracking-[0.25em] text-white outline-none transition placeholder:text-slate-500 placeholder:tracking-normal focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+          className={`w-full min-h-[46px] rounded-xl border border-slate-700 bg-slate-900/90 py-3 ${
+            isAr ? 'pr-11 pl-4' : 'pl-11 pr-4'
+          } text-center text-base font-bold tracking-[0.25em] text-white outline-none transition placeholder:text-slate-500 placeholder:tracking-normal focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60`}
         />
       </div>
     </div>
@@ -325,6 +344,7 @@ export default function AuthModal({
   onClose,
   initialTab = 'login',
 }: AuthModalProps) {
+  const { t, isAr, setLanguage } = useLanguage();
   const [activeTab, setActiveTab] =
     useState<AuthTab>(initialTab);
 
@@ -1087,43 +1107,73 @@ export default function AuthModal({
 
   return (
     <div
-      dir="rtl"
-      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-950/90 p-4 backdrop-blur-sm"
+      dir={isAr ? 'rtl' : 'ltr'}
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-950/90 p-3 sm:p-4 backdrop-blur-sm"
     >
-      <div className="relative my-4 w-full max-w-md overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 shadow-2xl">
+      <div className="relative my-auto sm:my-4 w-full max-w-sm sm:max-w-md overflow-hidden rounded-3xl border border-slate-700/80 bg-slate-950 shadow-2xl">
+        {/* Language Selection Header Bar - Touch-First for Mobile Phones */}
+        <div className="bg-slate-900 border-b border-slate-800/90 px-3.5 sm:px-4 py-2.5 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <button
+              type="button"
+              onClick={() => {
+                haptics.vibrateTick();
+                setLanguage('ar');
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 min-h-[36px] ${
+                isAr
+                  ? 'bg-purple-600 text-white shadow-sm font-black ring-1 ring-purple-400/40'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <span>🇸🇦</span>
+              <span>العربية</span>
+            </button>
 
-        {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute left-4 top-4 z-10 rounded-full p-2.5 text-slate-400 transition hover:bg-slate-800 hover:text-white"
-            aria-label="إغلاق والدخول لشاشة البرنامج للتعديل"
-            title="إغلاق والدخول لشاشة البرنامج للتعديل"
-          >
-            <X size={20} />
-          </button>
-        )}
-
-        <div className="border-b border-slate-800 bg-gradient-to-br from-blue-950/70 via-slate-950 to-slate-950 px-6 pb-5 pt-7 text-center">
-
-          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-400/30 bg-blue-500/10 text-blue-400 shadow-lg shadow-blue-500/10">
-            <ShieldCheck size={34} />
+            <button
+              type="button"
+              onClick={() => {
+                haptics.vibrateTick();
+                setLanguage('en');
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 min-h-[36px] ${
+                !isAr
+                  ? 'bg-purple-600 text-white shadow-sm font-black ring-1 ring-purple-400/40'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <span>🇬🇧</span>
+              <span>English</span>
+            </button>
           </div>
 
-          <h1 className="text-2xl font-black tracking-wide text-white">
-            NATAN SMART
-          </h1>
-
-          <p className="mt-1 text-sm text-slate-400">
-            نظام إدارة آمن وذكي
-          </p>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl p-2 text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer min-w-[38px] min-h-[38px] flex items-center justify-center active:scale-95"
+              aria-label={isAr ? 'إغلاق' : 'Close'}
+              title={isAr ? 'إغلاق والدخول لشاشة البرنامج' : 'Close and enter app'}
+            >
+              <X size={20} />
+            </button>
+          )}
         </div>
 
-        <div className="p-6">
+        <div className="border-b border-slate-800/80 bg-gradient-to-b from-purple-950/20 via-slate-900/60 to-slate-950 px-5 sm:px-6 pb-4 sm:pb-5 pt-5 sm:pt-6 text-center">
+          <div className="mx-auto mb-2.5 sm:mb-3 flex items-center justify-center">
+            <NatanLogo size="md" withGlow={true} />
+          </div>
 
+          <h1 className="text-2xl sm:text-3xl font-black tracking-wider text-white">
+            NATAN
+          </h1>
+        </div>
+
+        <div className="p-4 sm:p-6">
           {(errorMsg || successMsg) && (
             <div
-              className={`mb-5 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
+              className={`mb-4 sm:mb-5 flex items-start gap-3 rounded-xl border px-3.5 py-3 text-xs sm:text-sm ${
                 errorMsg
                   ? 'border-red-500/30 bg-red-500/10 text-red-200'
                   : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
@@ -1131,12 +1181,12 @@ export default function AuthModal({
             >
               {errorMsg ? (
                 <AlertCircle
-                  size={19}
+                  size={18}
                   className="mt-0.5 shrink-0"
                 />
               ) : (
                 <CheckCircle2
-                  size={19}
+                  size={18}
                   className="mt-0.5 shrink-0"
                 />
               )}
@@ -1150,16 +1200,15 @@ export default function AuthModal({
 
           {activeTab === 'login' && (
             <>
-              <div className="mb-5 grid grid-cols-2 gap-2 rounded-xl bg-slate-900 p-1">
-
+              <div className="mb-4 sm:mb-5 grid grid-cols-2 gap-2 rounded-xl bg-slate-900 p-1">
                 <button
                   type="button"
                   onClick={() =>
                     goToTab('login')
                   }
-                  className="rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-bold text-white"
+                  className="rounded-lg bg-blue-600 px-3 py-2.5 text-xs sm:text-sm font-black text-white min-h-[44px] cursor-pointer shadow-md shadow-blue-600/25 active:scale-95"
                 >
-                  تسجيل الدخول
+                  {isAr ? 'تسجيل الدخول' : 'Sign In'}
                 </button>
 
                 <button
@@ -1167,9 +1216,9 @@ export default function AuthModal({
                   onClick={() =>
                     goToTab('register')
                   }
-                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 transition hover:text-white"
+                  className="rounded-lg px-3 py-2.5 text-xs sm:text-sm font-medium text-slate-400 transition hover:text-white min-h-[44px] cursor-pointer active:scale-95"
                 >
-                  إنشاء حساب
+                  {isAr ? 'إنشاء حساب' : 'Create Account'}
                 </button>
               </div>
 
@@ -1177,17 +1226,17 @@ export default function AuthModal({
                 onSubmit={
                   handleLogin
                 }
-                className="space-y-4"
+                className="space-y-3.5 sm:space-y-4"
               >
                 <Field
-                  label="اسم المستخدم / البريد / الهاتف"
+                  label={isAr ? 'اسم المستخدم / البريد / الهاتف' : 'Username / Email / Phone'}
                   value={
                     loginUsername
                   }
                   onChange={
                     setLoginUsername
                   }
-                  placeholder="أدخل بيانات الحساب"
+                  placeholder={isAr ? 'أدخل بيانات الحساب' : 'Enter your account'}
                   icon={
                     <User size={18} />
                   }
@@ -1196,7 +1245,7 @@ export default function AuthModal({
                 />
 
                 <Field
-                  label="كلمة المرور"
+                  label={isAr ? 'كلمة المرور' : 'Password'}
                   value={
                     loginPassword
                   }
@@ -1204,7 +1253,7 @@ export default function AuthModal({
                     setLoginPassword
                   }
                   type="password"
-                  placeholder="أدخل كلمة المرور"
+                  placeholder={isAr ? 'أدخل كلمة المرور' : 'Enter your password'}
                   icon={
                     <Lock size={18} />
                   }
@@ -1215,7 +1264,7 @@ export default function AuthModal({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm sm:text-base font-black text-white shadow-lg shadow-blue-600/25 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer min-h-[48px] active:scale-95"
                 >
                   {loading ? (
                     <RefreshCw
@@ -1227,70 +1276,58 @@ export default function AuthModal({
                   )}
 
                   {loading
-                    ? 'جارٍ تسجيل الدخول...'
-                    : 'تسجيل الدخول'}
+                    ? (isAr ? 'جارٍ تسجيل الدخول...' : 'Signing in...')
+                    : (isAr ? 'تسجيل الدخول' : 'Sign In')}
                 </button>
 
-                {/* Biometric Quick Login Section */}
+                {/* Biometric Quick Login Section - Unified Single Action */}
                 <div className="pt-2">
                   <div className="relative flex py-2 items-center">
                     <div className="flex-grow border-t border-slate-800"></div>
-                    <span className="flex-shrink mx-2 text-[11px] font-bold text-slate-400 bg-slate-950 px-2">
-                      أو الدخول السريع بالبصمة والوجه
+                    <span className="flex-shrink mx-2 text-[10px] sm:text-[11px] font-bold text-slate-400 bg-slate-950 px-2">
+                      {isAr ? 'أو المصادقة الحيوية' : 'Or Biometric Sign In'}
                     </span>
                     <div className="flex-grow border-t border-slate-800"></div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 mt-1">
-                    {/* Fingerprint Button */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBiometricModalMode('fingerprint');
-                        setShowBiometricModal(true);
-                      }}
-                      className="flex items-center justify-center gap-2 py-3 px-3 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 font-bold text-xs shadow-sm transition active:scale-95 min-h-[46px]"
-                    >
-                      <Fingerprint className="w-5 h-5 text-emerald-400 shrink-0" />
-                      <span className="truncate">بصمة الإصبع</span>
-                    </button>
-
-                    {/* Face ID Button */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBiometricModalMode('face');
-                        setShowBiometricModal(true);
-                      }}
-                      className="flex items-center justify-center gap-2 py-3 px-3 rounded-2xl border border-cyan-500/40 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-bold text-xs shadow-sm transition active:scale-95 min-h-[46px]"
-                    >
-                      <ScanFace className="w-5 h-5 text-cyan-400 shrink-0" />
-                      <span className="truncate">بصمة الوجه</span>
-                    </button>
-                  </div>
+                  {/* Single Unified Biometric Action */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptics.vibrateTick();
+                      setBiometricModalMode('fingerprint');
+                      setShowBiometricModal(true);
+                    }}
+                    className="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-cyan-500/15 hover:from-emerald-500/25 hover:to-cyan-500/25 text-emerald-300 font-bold text-xs sm:text-sm shadow-sm transition active:scale-[0.98] min-h-[46px] cursor-pointer"
+                  >
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Fingerprint className="w-5 h-5 text-emerald-400" />
+                      <ScanFace className="w-5 h-5 text-cyan-400" />
+                    </div>
+                    <span className="truncate">{isAr ? 'الدخول السريع بالبصمة الحيوية (إصبع / وجه)' : 'Quick Biometric Sign In (Fingerprint & Face ID)'}</span>
+                  </button>
 
                   {/* Biometric toggle checkbox */}
-                  <label className="flex items-center gap-2 mt-3 cursor-pointer select-none text-xs text-slate-400 hover:text-slate-300">
+                  <label className="flex items-center gap-2 mt-2.5 cursor-pointer select-none text-[11px] sm:text-xs text-slate-400 hover:text-slate-300">
                     <input
                       type="checkbox"
                       checked={autoRememberBiometrics}
                       onChange={(e) => setAutoRememberBiometrics(e.target.checked)}
                       className="rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-blue-500/30 w-4 h-4 cursor-pointer"
                     />
-                    <span>تفعيل الدخول ببصمة الإصبع وبصمة الوجه على هذا الهاتف</span>
+                    <span>{isAr ? 'تفعيل الدخول التلقائي بالبصمة على هذا الهاتف' : 'Enable auto biometric login on this phone'}</span>
                   </label>
                 </div>
 
                 <div className="flex items-center justify-between pt-1 text-xs">
-
                   <button
                     type="button"
                     onClick={() =>
                       goToTab('forgot')
                     }
-                    className="text-slate-400 transition hover:text-blue-400"
+                    className="text-slate-400 transition hover:text-blue-400 cursor-pointer min-h-[38px] flex items-center"
                   >
-                    نسيت كلمة المرور؟
+                    {isAr ? 'نسيت كلمة المرور؟' : 'Forgot Password?'}
                   </button>
 
                   <button
@@ -1298,45 +1335,33 @@ export default function AuthModal({
                     onClick={() =>
                       goToTab('activate')
                     }
-                    className="text-slate-400 transition hover:text-emerald-400"
+                    className="text-slate-400 transition hover:text-emerald-400 cursor-pointer min-h-[38px] flex items-center"
                   >
-                    لدي رمز تفعيل
+                    {isAr ? 'لدي رمز تفعيل' : 'I have an activation code'}
                   </button>
                 </div>
-
-                {onClose && (
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="w-full mt-3 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-purple-500/40 bg-purple-500/15 hover:bg-purple-500/25 text-purple-200 font-bold text-xs transition active:scale-95 min-h-[46px]"
-                  >
-                    <SlidersHorizontal size={16} className="text-purple-400" />
-                    <span>الدخول إلى شاشة البرنامج للتعديل المباشر</span>
-                  </button>
-                )}
               </form>
             </>
           )}
 
           {activeTab === 'register' && (
             <>
-              <div className="mb-5 grid grid-cols-2 gap-2 rounded-xl bg-slate-900 p-1">
-
+              <div className="mb-4 sm:mb-5 grid grid-cols-2 gap-2 rounded-xl bg-slate-900 p-1">
                 <button
                   type="button"
                   onClick={() =>
                     goToTab('login')
                   }
-                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 transition hover:text-white"
+                  className="rounded-lg px-3 py-2.5 text-xs sm:text-sm font-medium text-slate-400 transition hover:text-white min-h-[44px] cursor-pointer active:scale-95"
                 >
-                  تسجيل الدخول
+                  {isAr ? 'تسجيل الدخول' : 'Sign In'}
                 </button>
 
                 <button
                   type="button"
-                  className="rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-bold text-white"
+                  className="rounded-lg bg-blue-600 px-3 py-2.5 text-xs sm:text-sm font-black text-white min-h-[44px] shadow-md shadow-blue-600/25"
                 >
-                  إنشاء حساب
+                  {isAr ? 'إنشاء حساب' : 'Create Account'}
                 </button>
               </div>
 
@@ -1344,13 +1369,13 @@ export default function AuthModal({
                 onSubmit={
                   handleRegister
                 }
-                className="space-y-4"
+                className="space-y-3.5 sm:space-y-4"
               >
                 <Field
-                  label="اسم المستخدم"
+                  label={isAr ? 'اسم المستخدم' : 'Username'}
                   value={registerUsername}
                   onChange={setRegisterUsername}
-                  placeholder="مثال: natan_user"
+                  placeholder={isAr ? 'مثال: natan_user' : 'e.g. natan_user'}
                   icon={
                     <User size={18} />
                   }
@@ -1358,15 +1383,13 @@ export default function AuthModal({
                   disabled={loading}
                 />
 
-               
-
                 <Field
-                  label="الاسم الكامل"
+                  label={isAr ? 'الاسم الكامل' : 'Full Name'}
                   value={fullName}
                   onChange={
                     setFullName
                   }
-                  placeholder="مثال: أحمد محمد"
+                  placeholder={isAr ? 'مثال: أحمد محمد' : 'e.g. Ahmed Ali'}
                   icon={
                     <User size={18} />
                   }
@@ -1375,7 +1398,7 @@ export default function AuthModal({
                 />
 
                 <Field
-                  label="البريد الإلكتروني"
+                  label={isAr ? 'البريد الإلكتروني' : 'Email Address'}
                   value={email}
                   onChange={
                     setEmail
@@ -1390,13 +1413,13 @@ export default function AuthModal({
                 />
 
                 <Field
-                  label="رقم الهاتف"
+                  label={isAr ? 'رقم الهاتف' : 'Phone Number'}
                   value={phone}
                   onChange={
                     setPhone
                   }
                   type="tel"
-                  placeholder="رقم الهاتف"
+                  placeholder={isAr ? 'رقم الهاتف' : 'Phone number'}
                   icon={
                     <Phone size={18} />
                   }
@@ -1405,7 +1428,7 @@ export default function AuthModal({
                 />
 
                 <Field
-                  label="كلمة المرور"
+                  label={isAr ? 'كلمة المرور' : 'Password'}
                   value={
                     registerPassword
                   }
@@ -1413,7 +1436,7 @@ export default function AuthModal({
                     setRegisterPassword
                   }
                   type="password"
-                  placeholder="6 أحرف على الأقل"
+                  placeholder={isAr ? '6 أحرف على الأقل' : 'At least 6 characters'}
                   icon={
                     <Lock size={18} />
                   }
@@ -1422,7 +1445,7 @@ export default function AuthModal({
                 />
 
                 <Field
-                  label="تأكيد كلمة المرور"
+                  label={isAr ? 'تأكيد كلمة المرور' : 'Confirm Password'}
                   value={
                     confirmPassword
                   }
@@ -1430,7 +1453,7 @@ export default function AuthModal({
                     setConfirmPassword
                   }
                   type="password"
-                  placeholder="أعد كتابة كلمة المرور"
+                  placeholder={isAr ? 'أعد كتابة كلمة المرور' : 'Re-enter your password'}
                   icon={
                     <Lock size={18} />
                   }
@@ -1441,7 +1464,7 @@ export default function AuthModal({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm sm:text-base font-black text-white shadow-lg shadow-blue-600/25 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer min-h-[48px] active:scale-95"
                 >
                   {loading ? (
                     <RefreshCw
@@ -1455,40 +1478,37 @@ export default function AuthModal({
                   )}
 
                   {loading
-                    ? 'جارٍ إنشاء الحساب...'
-                    : 'إنشاء الحساب'}
+                    ? (isAr ? 'جارٍ إنشاء الحساب...' : 'Creating account...')
+                    : (isAr ? 'إنشاء الحساب' : 'Create Account')}
                 </button>
 
-               <p className="text-center text-xs leading-5 text-slate-500">
-  يمكنك إنشاء الحساب بدون رمز تفعيل.
-  <br />
-  بعد إنشاء الحساب يمكنك تسجيل الدخول،
-  <br />
-  ويطلب رمز التفعيل فقط عند الحاجة إلى الميزات المحمية.
-</p>
+                <p className="text-center text-xs leading-5 text-slate-500">
+                  {isAr
+                    ? 'يمكنك إنشاء الحساب بدون رمز تفعيل، ويطلب فقط عند الحاجة إلى الميزات المحمية.'
+                    : 'You can create an account without an activation code.'}
+                </p>
               </form>
             </>
           )}
 
           {activeTab === 'activate' && (
             <>
-              <div className="mb-5 text-center">
-
-                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
+              <div className="mb-4 sm:mb-5 text-center">
+                <div className="mx-auto mb-2.5 sm:mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
                   <KeyRound size={28} />
                 </div>
 
-                <h2 className="text-lg font-bold text-white">
-                  تفعيل الحساب
+                <h2 className="text-base sm:text-lg font-black text-white">
+                  {isAr ? 'تفعيل الحساب' : 'Account Activation'}
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-400">
-                  أدخل بيانات الحساب ورمز التفعيل
+                <p className="mt-1 text-xs sm:text-sm text-slate-400">
+                  {isAr ? 'أدخل بيانات الحساب ورمز التفعيل' : 'Enter account details and activation code'}
                 </p>
               </div>
 
               {activationHint && (
-                <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm leading-6 text-amber-200">
+                <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3.5 py-2.5 text-xs sm:text-sm leading-6 text-amber-200">
                   {activationHint}
                 </div>
               )}
@@ -1497,17 +1517,17 @@ export default function AuthModal({
                 onSubmit={
                   handleActivate
                 }
-                className="space-y-4"
+                className="space-y-3.5 sm:space-y-4"
               >
                 <Field
-                  label="اسم المستخدم / البريد / الهاتف"
+                  label={isAr ? 'اسم المستخدم / البريد / الهاتف' : 'Username / Email / Phone'}
                   value={
                     activationUsername
                   }
                   onChange={
                     setActivationUsername
                   }
-                  placeholder="بيانات الحساب"
+                  placeholder={isAr ? 'بيانات الحساب' : 'Account credentials'}
                   icon={
                     <User size={18} />
                   }
@@ -1528,7 +1548,7 @@ export default function AuthModal({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3.5 text-sm sm:text-base font-black text-white shadow-lg shadow-emerald-600/25 transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer min-h-[48px] active:scale-95"
                 >
                   {loading ? (
                     <RefreshCw
@@ -1542,20 +1562,19 @@ export default function AuthModal({
                   )}
 
                   {loading
-                    ? 'جارٍ التفعيل...'
-                    : 'تفعيل الحساب'}
+                    ? (isAr ? 'جارٍ التفعيل...' : 'Activating...')
+                    : (isAr ? 'تفعيل الحساب' : 'Activate Account')}
                 </button>
 
                 <div className="flex items-center justify-between pt-1 text-xs">
-
                   <button
                     type="button"
                     onClick={() =>
                       goToTab('login')
                     }
-                    className="text-slate-400 transition hover:text-blue-400"
+                    className="text-slate-400 transition hover:text-blue-400 cursor-pointer min-h-[38px] flex items-center"
                   >
-                    العودة لتسجيل الدخول
+                    {isAr ? 'العودة لتسجيل الدخول' : 'Back to Sign In'}
                   </button>
 
                   <button
@@ -1563,9 +1582,9 @@ export default function AuthModal({
                     onClick={() =>
                       goToTab('register')
                     }
-                    className="text-slate-400 transition hover:text-blue-400"
+                    className="text-slate-400 transition hover:text-blue-400 cursor-pointer min-h-[38px] flex items-center"
                   >
-                    إنشاء حساب
+                    {isAr ? 'إنشاء حساب' : 'Create Account'}
                   </button>
                 </div>
               </form>
@@ -1574,18 +1593,17 @@ export default function AuthModal({
 
           {activeTab === 'forgot' && (
             <>
-              <div className="mb-5 text-center">
-
-                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-400">
+              <div className="mb-4 sm:mb-5 text-center">
+                <div className="mx-auto mb-2.5 sm:mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-400">
                   <Lock size={28} />
                 </div>
 
-                <h2 className="text-lg font-bold text-white">
-                  استعادة كلمة المرور
+                <h2 className="text-base sm:text-lg font-black text-white">
+                  {isAr ? 'استعادة كلمة المرور' : 'Reset Password'}
                 </h2>
 
-                <p className="mt-1 text-sm text-slate-400">
-                  أدخل اسم المستخدم أو البريد الإلكتروني
+                <p className="mt-1 text-xs sm:text-sm text-slate-400">
+                  {isAr ? 'أدخل اسم المستخدم أو البريد الإلكتروني' : 'Enter username or email address'}
                 </p>
               </div>
 
@@ -1593,17 +1611,17 @@ export default function AuthModal({
                 onSubmit={
                   handleForgotPassword
                 }
-                className="space-y-4"
+                className="space-y-3.5 sm:space-y-4"
               >
                 <Field
-                  label="اسم المستخدم / البريد الإلكتروني"
+                  label={isAr ? 'اسم المستخدم / البريد الإلكتروني' : 'Username / Email'}
                   value={
                     forgotUsername
                   }
                   onChange={
                     setForgotUsername
                   }
-                  placeholder="بيانات الحساب"
+                  placeholder={isAr ? 'بيانات الحساب' : 'Account credentials'}
                   icon={
                     <Mail size={18} />
                   }
@@ -1614,7 +1632,7 @@ export default function AuthModal({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm sm:text-base font-black text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer min-h-[48px] active:scale-95 shadow-md shadow-blue-600/25"
                 >
                   {loading ? (
                     <RefreshCw
@@ -1626,8 +1644,8 @@ export default function AuthModal({
                   )}
 
                   {loading
-                    ? 'جارٍ الإرسال...'
-                    : 'إرسال طلب الاستعادة'}
+                    ? (isAr ? 'جارٍ الإرسال...' : 'Sending...')
+                    : (isAr ? 'إرسال طلب الاستعادة' : 'Send Reset Link')}
                 </button>
 
                 <button
@@ -1635,91 +1653,46 @@ export default function AuthModal({
                   onClick={() =>
                     goToTab('login')
                   }
-                  className="w-full text-center text-xs text-slate-400 transition hover:text-blue-400"
+                  className="w-full text-center text-xs text-slate-400 transition hover:text-blue-400 cursor-pointer min-h-[38px] flex items-center justify-center"
                 >
-                  العودة لتسجيل الدخول
+                  {isAr ? 'العودة لتسجيل الدخول' : 'Back to Sign In'}
                 </button>
               </form>
             </>
           )}
 
-          <div className="mt-6 border-t border-slate-800 pt-4">
-
+          <div className="mt-5 sm:mt-6 border-t border-slate-800 pt-4">
             <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
               <Smartphone size={15} />
               <span>
-                مصادقة NATAN Server
+                {isAr ? 'مصادقة NATAN Server المشفرة' : 'NATAN Encrypted Server Auth'}
               </span>
             </div>
 
             {currentSession &&
               isLicensed && (
                 <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center text-xs text-emerald-300">
-                  الحساب الحالي صالح حتى{' '}
+                  {isAr ? 'الحساب الحالي صالح حتى' : 'Current account valid until'}{' '}
                   {formatExpiry(
                     currentSession.expiresAt,
                   )}
                 </div>
               )}
 
-            {/* Biometric Security Status Card */}
-            <div className="mt-3 rounded-2xl border border-blue-500/25 bg-blue-500/5 p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Fingerprint className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs font-bold text-slate-200">
-                    المصادقة الحيوية (بصمة الإصبع والوجه)
-                  </span>
-                </div>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
-                  نشطة
-                </span>
-              </div>
-              <p className="mt-1 text-[11px] text-slate-400 leading-4">
-                يمكنك تسجيل الدخول بسرعة فائقة باستخدام بصمة الإصبع أو كاميرا الوجه.
-              </p>
-              <div className="mt-2.5 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBiometricModalMode('fingerprint');
-                    setShowBiometricModal(true);
-                  }}
-                  className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-bold transition active:scale-95 min-h-[38px]"
-                >
-                  <Fingerprint className="w-3.5 h-3.5" />
-                  <span>فحص بصمة الإصبع</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBiometricModalMode('face');
-                    setShowBiometricModal(true);
-                  }}
-                  className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-xs font-bold transition active:scale-95 min-h-[38px]"
-                >
-                  <ScanFace className="w-3.5 h-3.5" />
-                  <span>فحص بصمة الوجه</span>
-                </button>
-              </div>
-            </div>
-
             {/* WhatsApp Support */}
-            <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3">
-
-              <div className="mb-2 flex items-center justify-center gap-2 text-sm font-bold text-emerald-300">
-                <MessageCircle size={17} />
+            <div className="mt-3.5 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+              <div className="mb-1.5 flex items-center justify-center gap-2 text-xs sm:text-sm font-bold text-emerald-300">
+                <MessageCircle size={16} />
                 <span>
-                  الدعم الفني والتراخيص عبر واتساب
+                  {isAr ? 'الدعم الفني والتراخيص عبر واتساب' : 'Technical & Licensing Support via WhatsApp'}
                 </span>
               </div>
 
-              <p className="mb-3 text-center text-[11px] leading-5 text-slate-500">
-                تواصل مباشرة مع فريق الدعم للمساعدة في التسجيل والتفعيل والمشكلات الفنية.
+              <p className="mb-2.5 text-center text-[10px] sm:text-[11px] leading-4 text-slate-500">
+                {isAr ? 'تواصل مباشرة مع فريق الدعم للمساعدة في التسجيل والتفعيل.' : 'Connect directly with technical support for registration & license assistance.'}
               </p>
 
               <div className="grid grid-cols-2 gap-2">
-
                 <button
                   type="button"
                   onClick={() =>
@@ -1729,19 +1702,15 @@ export default function AuthModal({
                           '97333314353',
                         )
                   }
-                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-3 text-xs font-bold text-emerald-300 transition hover:border-emerald-400/50 hover:bg-emerald-500/20 active:scale-95"
+                  className="flex flex-col items-center justify-center gap-1 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-2.5 text-xs font-bold text-emerald-300 transition hover:border-emerald-400/50 hover:bg-emerald-500/20 active:scale-95 min-h-[46px] cursor-pointer"
                   title="فتح واتساب للدعم الفني"
-                  aria-label="فتح واتساب للدعم الفني"
                 >
                   <MessageCircle
-                    size={28}
+                    size={22}
                     className="fill-emerald-400/20"
                   />
                   <span>
-                    الدعم الفني
-                  </span>
-                  <span className="text-[10px] text-slate-400">
-                    واتساب
+                    {isAr ? 'الدعم الفني' : 'Tech Support'}
                   </span>
                 </button>
 
@@ -1752,22 +1721,17 @@ export default function AuthModal({
                       '97333269372',
                     )
                   }
-                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-3 text-xs font-bold text-emerald-300 transition hover:border-emerald-400/50 hover:bg-emerald-500/20 active:scale-95"
+                  className="flex flex-col items-center justify-center gap-1 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-2.5 text-xs font-bold text-emerald-300 transition hover:border-emerald-400/50 hover:bg-emerald-500/20 active:scale-95 min-h-[46px] cursor-pointer"
                   title="فتح واتساب لخدمة العملاء"
-                  aria-label="فتح واتساب لخدمة العملاء"
                 >
                   <MessageCircle
-                    size={28}
+                    size={22}
                     className="fill-emerald-400/20"
                   />
                   <span>
-                    خدمة العملاء
-                  </span>
-                  <span className="text-[10px] text-slate-400">
-                    واتساب
+                    {isAr ? 'خدمة العملاء' : 'Customer Care'}
                   </span>
                 </button>
-
               </div>
             </div>
           </div>

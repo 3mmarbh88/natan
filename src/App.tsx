@@ -24,6 +24,8 @@ import {
 import {
   SAUDI_CITIES,
   DAYS_OF_WEEK,
+  SAUDI_CITY_COORDINATES,
+  getClosestSaudiCity,
 } from './data/saudiCities';
 
 import { soundFX } from './utils/audio';
@@ -154,7 +156,7 @@ const INITIAL_SETTINGS: BookingSettings = {
  */
 
 export default function App() {
-  const { t, isAr } = useLanguage();
+  const { t, isAr, setLanguage } = useLanguage();
 
   /*
    * ============================================================
@@ -399,7 +401,7 @@ export default function App() {
     );
 
   const [showAuthModal, setShowAuthModal] =
-    useState<boolean>(false);
+    useState<boolean>(() => !authSession?.isAuthenticated);
 
   const [showActivationModal, setShowActivationModal] =
     useState<boolean>(false);
@@ -853,18 +855,31 @@ export default function App() {
    */
 
   const handleMapLocationChange = (location: { lat: number; lng: number }) => {
+    const closestCity = getClosestSaudiCity(location.lat, location.lng);
+    const districts = closestCity && closestCity.districts.length > 0 ? [...closestCity.districts] : [];
+
     updateSettings({
       selectedLatitude: Number(location.lat.toFixed(6)),
       selectedLongitude: Number(location.lng.toFixed(6)),
       selectedLocationLabel: `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`,
+      selectedCity: closestCity ? closestCity.id : settings.selectedCity,
+      selectedDistricts: districts,
     });
 
     addLog(
       'success',
       isAr
-        ? `📍 تم تحديد نقطة اللوكيشن: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`
-        : `📍 Location point selected: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`
+        ? `📍 تم تطبيق اللوكيشن من الخريطة: (${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}) — المدينة: ${closestCity?.name || ''}`
+        : `📍 Map Location applied: (${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}) — City: ${closestCity?.nameEn || ''}`
     );
+
+    if (settings.vibrationAlert) {
+      try {
+        haptics.vibrateTick();
+      } catch {
+        /* safe */
+      }
+    }
   };
 
   const handleChangeLocation = (
@@ -885,17 +900,21 @@ export default function App() {
         ? [...city.districts]
         : [];
 
+    const coords = SAUDI_CITY_COORDINATES[city.id];
+
     updateSettings({
       selectedCity: city.id,
-      selectedDistricts:
-        districts,
+      selectedDistricts: districts,
+      selectedLatitude: coords ? coords.lat : settings.selectedLatitude,
+      selectedLongitude: coords ? coords.lng : settings.selectedLongitude,
+      selectedLocationLabel: coords ? `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}` : settings.selectedLocationLabel,
     });
 
     addLog(
       'success',
       isAr
-        ? `📍 تم تغيير اللوكيشن إلى ${city.name}`
-        : `📍 Location changed to ${city.nameEn}`
+        ? `📍 تم تحديث اللوكيشن إلى ${city.name} (${coords ? `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : ''})`
+        : `📍 Location updated to ${city.nameEn}`
     );
 
     /*
@@ -2213,7 +2232,9 @@ export default function App() {
           authSession
         }
         onOpenLicense={() => {
-          if (!isLicensed) {
+          if (!authSession || !authSession.isAuthenticated) {
+            setShowAuthModal(true);
+          } else if (!isLicensed) {
             openActivationModal();
           }
         }}
@@ -2267,194 +2288,109 @@ export default function App() {
           "
         >
 
+          {/* Main 5 Navigation Tabs - Responsive Grid on Mobile, Flex Row on Desktop */}
           <div
             className="
-              flex
-              items-center
+              grid
+              grid-cols-5
               gap-1.5
+              sm:flex
+              sm:items-center
               sm:gap-2
-              overflow-x-auto
-              scrollbar-none
-              py-1
               w-full
               sm:w-auto
+              p-1.5
+              sm:p-0
+              bg-slate-950/80
+              sm:bg-transparent
+              rounded-2xl
+              sm:rounded-none
+              border
+              sm:border-0
+              border-slate-800/80
             "
           >
-
-            {/* Radar */}
-
+            {/* 1. Radar */}
             <button
               type="button"
-              onClick={() =>
-                setActiveView(
-                  'radar'
-                )
-              }
-              className={`shrink-0 flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl min-h-[44px] text-xs font-black transition-all cursor-pointer active:scale-95 ${
-                activeView ===
-                'radar'
+              onClick={() => setActiveView('radar')}
+              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2 sm:py-2.5 rounded-xl min-h-[46px] text-[10px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
+                activeView === 'radar'
                   ? 'bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/25 border border-purple-400/40'
                   : 'bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800/90 border border-slate-800'
               }`}
             >
-              <Radio
-                className="
-                  w-4
-                  h-4
-                  text-purple-300
-                  shrink-0
-                "
-              />
-
-              <span className="truncate">
-                {t.tabRadar}
-              </span>
+              <Radio className="w-4 h-4 text-purple-300 shrink-0" />
+              <span className="hidden sm:inline truncate">{t.tabRadar}</span>
+              <span className="sm:hidden leading-tight font-black">{isAr ? 'الرادار' : 'Radar'}</span>
             </button>
 
-            {/* Criteria */}
-
+            {/* 2. Criteria */}
             <button
               type="button"
-              onClick={() =>
-                setActiveView(
-                  'criteria'
-                )
-              }
-              className={`shrink-0 flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl min-h-[44px] text-xs font-black transition-all cursor-pointer active:scale-95 ${
-                activeView ===
-                'criteria'
+              onClick={() => setActiveView('criteria')}
+              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2 sm:py-2.5 rounded-xl min-h-[46px] text-[10px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
+                activeView === 'criteria'
                   ? 'bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/25 border border-purple-400/40'
                   : 'bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800/90 border border-slate-800'
               }`}
             >
-              <SlidersHorizontal
-                className="
-                  w-4
-                  h-4
-                  text-purple-300
-                  shrink-0
-                "
-              />
-
-              <span className="truncate">
-                {t.tabCriteria}
-              </span>
+              <SlidersHorizontal className="w-4 h-4 text-purple-300 shrink-0" />
+              <span className="hidden sm:inline truncate">{t.tabCriteria}</span>
+              <span className="sm:hidden leading-tight font-black">{isAr ? 'الشروط' : 'Filters'}</span>
             </button>
 
-            {/* LOCATION */}
-
+            {/* 3. LOCATION MAP */}
             <button
               type="button"
-              onClick={() =>
-                setActiveView(
-                  'location'
-                )
-              }
-              className={`shrink-0 flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl min-h-[44px] text-xs font-black transition-all cursor-pointer active:scale-95 ${
-                activeView ===
-                'location'
+              onClick={() => setActiveView('location')}
+              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2 sm:py-2.5 rounded-xl min-h-[46px] text-[10px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
+                activeView === 'location'
                   ? 'bg-gradient-to-r from-cyan-600 via-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25 border border-cyan-400/40'
                   : 'bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800/90 border border-slate-800'
               }`}
             >
-              <MapPin
-                className="
-                  w-4
-                  h-4
-                  text-cyan-400
-                  shrink-0
-                "
-              />
-
-              <span className="truncate">
-                {isAr
-                  ? 'تغيير اللوكيشن'
-                  : 'Location'}
-              </span>
+              <MapPin className="w-4 h-4 text-cyan-400 shrink-0" />
+              <span className="hidden sm:inline truncate">{isAr ? 'خريطة اللوكيشن' : 'Location Map'}</span>
+              <span className="sm:hidden leading-tight font-black">{isAr ? 'الخريطة' : 'Map'}</span>
             </button>
 
-            {/* Engine */}
-
+            {/* 4. Engine */}
             <button
               type="button"
-              onClick={() =>
-                setActiveView(
-                  'engine'
-                )
-              }
-              className={`shrink-0 flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl min-h-[44px] text-xs font-black transition-all cursor-pointer active:scale-95 ${
-                activeView ===
-                'engine'
+              onClick={() => setActiveView('engine')}
+              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2 sm:py-2.5 rounded-xl min-h-[46px] text-[10px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
+                activeView === 'engine'
                   ? 'bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/25 border border-purple-400/40'
                   : 'bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800/90 border border-slate-800'
               }`}
             >
-              <Zap
-                className="
-                  w-4
-                  h-4
-                  text-amber-400
-                  shrink-0
-                "
-              />
-
-              <span className="truncate">
-                {t.tabEngine} (
-                {
-                  settings.scanIntervalMs
-                }
-                ms)
-              </span>
+              <Zap className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="hidden sm:inline truncate">{t.tabEngine} ({settings.scanIntervalMs}ms)</span>
+              <span className="sm:hidden leading-tight font-black">{isAr ? 'السرعة' : 'Speed'}</span>
             </button>
 
-            {/* API Bot */}
-
+            {/* 5. API Bot */}
             <button
               type="button"
-              onClick={() =>
-                setActiveView(
-                  'api_bot'
-                )
-              }
-              className={`shrink-0 flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl min-h-[44px] text-xs font-black transition-all cursor-pointer relative active:scale-95 ${
-                activeView ===
-                'api_bot'
+              onClick={() => setActiveView('api_bot')}
+              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2 sm:py-2.5 rounded-xl min-h-[46px] text-[10px] sm:text-xs font-black transition-all cursor-pointer relative active:scale-95 ${
+                activeView === 'api_bot'
                   ? 'bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/30 border border-purple-400/50'
-                  : 'bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800/90 border border-purple-500/30'
+                  : 'bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800/90 border border-purple-500/30 ring-1 ring-purple-500/20'
               }`}
             >
-              <Server
-                className="
-                  w-4
-                  h-4
-                  text-purple-400
-                  shrink-0
-                "
-              />
-
-              <span className="truncate">
-                {t.tabApiBot}
-              </span>
-
-              <span
-                className="
-                  hidden
-                  sm:inline-block
-                  text-[10px]
-                  bg-purple-500/30
-                  text-purple-200
-                  px-1.5
-                  py-0.2
-                  rounded-full
-                  border
-                  border-purple-400/40
-                  font-mono
-                  font-bold
-                "
-              >
-                {
-                  t.directApiBadge
-                }
+              <div className="relative shrink-0">
+                <Server className="w-4 h-4 text-purple-400" />
+                <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+              </div>
+              <span className="hidden sm:inline truncate">{t.tabApiBot}</span>
+              <span className="sm:hidden leading-tight font-black text-purple-200">API Bot</span>
+              <span className="hidden sm:inline-block text-[10px] bg-purple-500/30 text-purple-200 px-1.5 py-0.2 rounded-full border border-purple-400/40 font-mono font-bold">
+                {t.directApiBadge}
               </span>
             </button>
           </div>
@@ -2489,7 +2425,9 @@ export default function App() {
             <button
               type="button"
               onClick={() => {
-                if (!isLicensed) {
+                if (!authSession || !authSession.isAuthenticated) {
+                  setShowAuthModal(true);
+                } else if (!isLicensed) {
                   openActivationModal();
                 }
               }}
@@ -2579,15 +2517,13 @@ export default function App() {
 
               <span
                 className={`px-2 py-0.5 rounded-full font-black text-[10px] sm:text-[11px] ${
-                  settings.autoBooking &&
-                  isLicensed
+                  settings.autoBooking
                     ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                     : 'bg-slate-800 text-slate-400'
                 }`}
               >
                 {
-                  settings.autoBooking &&
-                  isLicensed
+                  settings.autoBooking
                     ? t.autoBookingActive
                     : t.autoBookingManual
                 }
@@ -2617,16 +2553,14 @@ export default function App() {
             >
               <span
                 className={`w-2 h-2 rounded-full ${
-                  settings.monitoring &&
-                  isLicensed
+                  settings.monitoring
                     ? 'bg-emerald-400 animate-ping'
                     : 'bg-slate-600'
                 }`}
               />
 
               {
-                settings.monitoring &&
-                isLicensed
+                settings.monitoring
                   ? t.screenWatching
                   : t.monitoringStopped
               }
@@ -2866,270 +2800,26 @@ export default function App() {
               grid
               grid-cols-1
               lg:grid-cols-12
-              gap-6
+              gap-5
+              sm:gap-6
             "
           >
-
-            {/* =================================================
-                CITIES
-                ================================================= */}
-
-            <div
-              className="
-                lg:col-span-7
-              "
-            >
-              <div
-                className="
-                  rounded-2xl
-                  border
-                  border-slate-700
-                  bg-slate-900/70
-                  p-5
-                  sm:p-6
-                "
-              >
-
-                <div
-                  className="
-                    flex
-                    items-center
-                    gap-3
-                    mb-6
-                  "
-                >
-                  <div
-                    className="
-                      rounded-xl
-                      bg-cyan-500/10
-                      border
-                      border-cyan-500/20
-                      p-3
-                    "
-                  >
-                    <MapPin
-                      size={24}
-                      className="
-                        text-cyan-400
-                      "
-                    />
-                  </div>
-
-                  <div>
-                    <h2
-                      className="
-                        text-xl
-                        font-bold
-                        text-white
-                      "
-                    >
-                      {isAr
-                        ? 'تغيير اللوكيشن'
-                        : 'Change Location'}
-                    </h2>
-
-                    <p
-                      className="
-                        text-sm
-                        text-slate-400
-                        mt-1
-                      "
-                    >
-                      {isAr
-                        ? 'اختر المدينة التي تريد مراقبة شفتاتها داخل NATAN'
-                        : 'Select the city whose shifts you want to monitor in NATAN'}
-                    </p>
-                  </div>
-                </div>
-
-                <div
-                  className="
-                    grid
-                    grid-cols-1
-                    sm:grid-cols-2
-                    gap-3
-                  "
-                >
-                  {SAUDI_CITIES.map(
-                    (city) => {
-                      const isSelected =
-                        settings.selectedCity ===
-                        city.id;
-
-                      return (
-                        <button
-                          key={
-                            city.id
-                          }
-                          type="button"
-                          onClick={() =>
-                            handleChangeLocation(
-                              city.id
-                            )
-                          }
-                          className={`text-right rounded-2xl border p-4 transition-all active:scale-[0.98] ${
-                            isSelected
-                              ? 'border-cyan-400 bg-cyan-500/10 shadow-lg shadow-cyan-500/10'
-                              : 'border-slate-700 bg-slate-800/50 hover:border-slate-500 hover:bg-slate-800'
-                          }`}
-                        >
-                          <div
-                            className="
-                              flex
-                              items-start
-                              justify-between
-                              gap-3
-                            "
-                          >
-
-                            <div
-                              className="
-                                min-w-0
-                              "
-                            >
-                              <div
-                                className="
-                                  text-base
-                                  sm:text-lg
-                                  font-bold
-                                  text-white
-                                  truncate
-                                "
-                              >
-                                {isAr
-                                  ? city.name
-                                  : city.nameEn}
-                              </div>
-
-                              <div
-                                className="
-                                  text-xs
-                                  text-slate-400
-                                  mt-1
-                                "
-                              >
-                                {city.region}
-                              </div>
-                            </div>
-
-                            {isSelected && (
-                              <div
-                                className="
-                                  shrink-0
-                                  flex
-                                  items-center
-                                  gap-1
-                                  rounded-full
-                                  bg-cyan-500/20
-                                  px-2
-                                  py-1
-                                  text-[10px]
-                                  font-bold
-                                  text-cyan-300
-                                  border
-                                  border-cyan-500/20
-                                "
-                              >
-                                <Check
-                                  className="
-                                    w-3
-                                    h-3
-                                  "
-                                />
-
-                                {isAr
-                                  ? 'محدد'
-                                  : 'Selected'}
-                              </div>
-                            )}
-                          </div>
-
-                          <div
-                            className="
-                              mt-4
-                              flex
-                              items-center
-                              justify-between
-                              gap-2
-                              text-xs
-                            "
-                          >
-                            <span
-                              className="
-                                text-slate-500
-                              "
-                            >
-                              {city
-                                .districts
-                                .length >
-                              0
-                                ? `${city.districts.length} ${
-                                    isAr
-                                      ? 'فروع'
-                                      : 'branches'
-                                  }`
-                                : isAr
-                                  ? 'بيانات الفروع غير مضافة بعد'
-                                  : 'Branch data not added yet'}
-                            </span>
-
-                            <MapPin
-                              className={`
-                                w-4
-                                h-4
-                                ${
-                                  isSelected
-                                    ? 'text-cyan-400'
-                                    : 'text-slate-600'
-                                }
-                              `}
-                            />
-                          </div>
-                        </button>
-                      );
-                    }
-                  )}
-                </div>
-
-                {/* Location notice */}
-
-                <div
-                  className="
-                    mt-5
-                    rounded-xl
-                    border
-                    border-cyan-500/20
-                    bg-cyan-500/5
-                    px-4
-                    py-3
-                    text-xs
-                    text-slate-400
-                    leading-relaxed
-                  "
-                >
-                  {isAr
-                    ? '📍 هذا الخيار يحدد موقع البحث داخل NATAN، ويمكن تطبيق النقطة على Android عبر Mock Location الرسمي.'
-                    : "📍 This option controls NATAN search location. You can also publish the selected point through Android's official Mock Location mechanism."}
-                </div>
-              </div>
-            </div>
-
             {/* =================================================
                 PROFESSIONAL MAP LOCATION PICKER
                 ================================================= */}
 
-            <div className="lg:col-span-12">
-              <div className="rounded-2xl border border-cyan-500/20 bg-slate-900/70 p-5 sm:p-6 shadow-xl">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+            <div className="lg:col-span-8">
+              <div className="rounded-2xl border border-cyan-500/20 bg-slate-900/70 p-4 sm:p-6 shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-5">
                   <div className="flex items-center gap-3">
-                    <div className="rounded-xl bg-cyan-500/10 border border-cyan-500/20 p-3">
-                      <MapPinned className="w-6 h-6 text-cyan-300" />
+                    <div className="rounded-xl bg-cyan-500/10 border border-cyan-500/20 p-2.5 sm:p-3 shrink-0">
+                      <MapPinned className="w-5 h-5 sm:w-6 sm:h-6 text-cyan-300" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-black text-white">
+                      <h3 className="text-base sm:text-lg font-black text-white">
                         {isAr ? 'خريطة اللوكيشن' : 'Location Map'}
                       </h3>
-                      <p className="text-xs text-slate-400 mt-1">
+                      <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                         {isAr
                           ? 'حدد نقطة على الخريطة أو استخدم موقع الهاتف الحالي. يمكنك تطبيق النقطة على Android عبر Mock Location الرسمي ليستخدمها NATAN والتطبيقات الأخرى التي تقبل المواقع الوهمية.'
                           : "Choose a point on the map or use the phone location. You can publish it through Android's official Mock Location mechanism for apps that accept mock locations."}
@@ -3137,8 +2827,8 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-[10px] font-bold text-emerald-300 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,.8)]" />
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5 text-[10px] font-bold text-emerald-300 flex items-center gap-2 self-start sm:self-auto shrink-0">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,.8)] animate-pulse" />
                     {isAr ? 'تحديد يدوي + GPS' : 'Manual + GPS selection'}
                   </div>
                 </div>
@@ -3161,7 +2851,7 @@ export default function App() {
 
             <div
               className="
-                lg:col-span-5
+                lg:col-span-4
               "
             >
               <div
@@ -3269,6 +2959,15 @@ export default function App() {
                               selectedCity.region
                             }
                           </div>
+
+                          <div className="mt-2 text-xs font-mono font-black text-cyan-300 flex items-center gap-1.5">
+                            <Navigation className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                            <span>
+                              {typeof settings.selectedLatitude === 'number' && typeof settings.selectedLongitude === 'number'
+                                ? `${settings.selectedLatitude.toFixed(6)}, ${settings.selectedLongitude.toFixed(6)}`
+                                : (isAr ? 'اضغط على الخريطة لتحديد الإحداثيات' : 'Tap map to set coordinates')}
+                            </span>
+                          </div>
                         </div>
 
                         <div
@@ -3288,6 +2987,13 @@ export default function App() {
                             "
                           />
                         </div>
+                      </div>
+
+                      <div className="mt-3 pt-3 border-t border-slate-700/60 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400">{isAr ? 'محاكاة الموقع الرسمي:' : 'Official Mock Location:'}</span>
+                        <span className="text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                          {isAr ? 'مدعوم على Android' : 'Supported on Android'}
+                        </span>
                       </div>
                     </div>
 
@@ -3646,6 +3352,9 @@ export default function App() {
             onShiftsUpdated={
               handleNinjaShiftsUpdated
             }
+            onNavigateToLocation={() =>
+              setActiveView('location')
+            }
           />
         )}
       </main>
@@ -3695,7 +3404,7 @@ export default function App() {
                 </span>
               )}
             </div>
-            <span className="text-[10px] leading-none truncate max-w-[62px]">{t.tabRadar}</span>
+            <span className="text-[10px] leading-none truncate max-w-[62px]">{isAr ? 'الرادار' : 'Radar'}</span>
             {activeView === 'radar' && <span className="w-1.5 h-1 rounded-full bg-purple-400 -mt-0.5" />}
           </button>
 
@@ -3713,7 +3422,7 @@ export default function App() {
             }`}
           >
             <SlidersHorizontal className={`w-5 h-5 ${activeView === 'criteria' ? 'text-purple-400 stroke-[2.5]' : ''}`} />
-            <span className="text-[10px] leading-none truncate max-w-[62px]">{t.tabCriteria}</span>
+            <span className="text-[10px] leading-none truncate max-w-[62px]">{isAr ? 'الشروط' : 'Criteria'}</span>
             {activeView === 'criteria' && <span className="w-1.5 h-1 rounded-full bg-purple-400 -mt-0.5" />}
           </button>
 
@@ -3731,7 +3440,7 @@ export default function App() {
             }`}
           >
             <MapPin className={`w-5 h-5 ${activeView === 'location' ? 'text-cyan-400 stroke-[2.5]' : ''}`} />
-            <span className="text-[10px] leading-none truncate max-w-[62px]">{isAr ? 'اللوكيشن' : 'Location'}</span>
+            <span className="text-[10px] leading-none truncate max-w-[62px]">{isAr ? 'الخريطة' : 'Location'}</span>
             {activeView === 'location' && <span className="w-1.5 h-1 rounded-full bg-cyan-400 -mt-0.5" />}
           </button>
 
@@ -3749,7 +3458,7 @@ export default function App() {
             }`}
           >
             <Zap className={`w-5 h-5 ${activeView === 'engine' ? 'text-amber-400 stroke-[2.5]' : ''}`} />
-            <span className="text-[10px] leading-none truncate max-w-[62px]">{t.tabSpeed}</span>
+            <span className="text-[10px] leading-none truncate max-w-[62px]">{isAr ? 'السرعة' : 'Engine'}</span>
             {activeView === 'engine' && <span className="w-1.5 h-1 rounded-full bg-amber-400 -mt-0.5" />}
           </button>
 
@@ -3762,13 +3471,19 @@ export default function App() {
             }}
             className={`flex flex-col items-center justify-center gap-1 w-full h-full relative cursor-pointer active:scale-95 transition-transform ${
               activeView === 'api_bot'
-                ? 'text-indigo-400 font-bold'
+                ? 'text-purple-300 font-black'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Server className={`w-5 h-5 ${activeView === 'api_bot' ? 'text-indigo-400 stroke-[2.5]' : ''}`} />
-            <span className="text-[10px] leading-none truncate max-w-[62px]">{t.tabApiBot}</span>
-            {activeView === 'api_bot' && <span className="w-1.5 h-1 rounded-full bg-indigo-400 -mt-0.5" />}
+            <div className="relative">
+              <Server className={`w-5 h-5 ${activeView === 'api_bot' ? 'text-purple-400 stroke-[2.5]' : 'text-purple-400/70'}`} />
+              <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+            </div>
+            <span className="text-[10px] leading-none font-black text-purple-200 whitespace-nowrap">API Bot ⚡</span>
+            {activeView === 'api_bot' && <span className="w-1.5 h-1 rounded-full bg-purple-400 -mt-0.5" />}
           </button>
         </div>
       </nav>
@@ -4466,129 +4181,6 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* ======================================================
-          MOBILE BOTTOM NAVIGATION BAR (شريط تنقل الهاتف)
-          ====================================================== */}
-      <nav
-        aria-label="شريط تنقل الهاتف الذكي"
-        className="
-          fixed
-          bottom-0
-          left-0
-          right-0
-          z-40
-          md:hidden
-          bg-slate-900/95
-          backdrop-blur-xl
-          border-t
-          border-slate-800/90
-          px-1.5
-          py-1.5
-          pb-safe
-          shadow-2xl
-        "
-      >
-        <div className="flex items-center justify-around gap-1 max-w-lg mx-auto">
-          {/* Radar */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveView('radar');
-              haptics.vibrateTick();
-            }}
-            className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all min-h-[48px] min-w-[50px] active:scale-95 ${
-              activeView === 'radar'
-                ? 'text-purple-400 bg-purple-500/20 font-black'
-                : 'text-slate-400 hover:text-slate-200 font-medium'
-            }`}
-          >
-            <Radio className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] tracking-tight">{t.tabRadar}</span>
-          </button>
-
-          {/* Criteria */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveView('criteria');
-              haptics.vibrateTick();
-            }}
-            className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all min-h-[48px] min-w-[50px] active:scale-95 ${
-              activeView === 'criteria'
-                ? 'text-purple-400 bg-purple-500/20 font-black'
-                : 'text-slate-400 hover:text-slate-200 font-medium'
-            }`}
-          >
-            <SlidersHorizontal className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] tracking-tight">{t.tabCriteria}</span>
-          </button>
-
-          {/* Location */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveView('location');
-              haptics.vibrateTick();
-            }}
-            className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all min-h-[48px] min-w-[50px] active:scale-95 ${
-              activeView === 'location'
-                ? 'text-cyan-400 bg-cyan-500/20 font-black'
-                : 'text-slate-400 hover:text-slate-200 font-medium'
-            }`}
-          >
-            <MapPin className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] tracking-tight">{isAr ? 'الموقع' : 'Location'}</span>
-          </button>
-
-          {/* Engine */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveView('engine');
-              haptics.vibrateTick();
-            }}
-            className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all min-h-[48px] min-w-[50px] active:scale-95 ${
-              activeView === 'engine'
-                ? 'text-amber-400 bg-amber-500/20 font-black'
-                : 'text-slate-400 hover:text-slate-200 font-medium'
-            }`}
-          >
-            <Zap className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] tracking-tight">{t.tabEngine}</span>
-          </button>
-
-          {/* API Bot */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveView('api_bot');
-              haptics.vibrateTick();
-            }}
-            className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all min-h-[48px] min-w-[50px] active:scale-95 ${
-              activeView === 'api_bot'
-                ? 'text-indigo-400 bg-indigo-500/20 font-black'
-                : 'text-slate-400 hover:text-slate-200 font-medium'
-            }`}
-          >
-            <Server className="w-5 h-5 mb-0.5" />
-            <span className="text-[10px] tracking-tight">{isAr ? 'البوت' : 'Bot'}</span>
-          </button>
-
-          {/* Biometrics & Account */}
-          <button
-            type="button"
-            onClick={() => {
-              setShowAuthModal(true);
-              haptics.vibrateTick();
-            }}
-            className="flex flex-col items-center justify-center py-1.5 px-2 rounded-xl transition-all min-h-[48px] min-w-[50px] active:scale-95 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 font-bold border border-emerald-500/30"
-          >
-            <Fingerprint className="w-5 h-5 mb-0.5 text-emerald-400" />
-            <span className="text-[10px] tracking-tight">{isAr ? 'البصمة' : 'Bio'}</span>
-          </button>
-        </div>
-      </nav>
 
       {/* ======================================================
           AUTH MODAL

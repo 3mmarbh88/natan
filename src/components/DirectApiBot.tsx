@@ -78,6 +78,7 @@ interface DirectApiBotProps {
   onShiftsUpdated: (
     shifts: Shift[],
   ) => void;
+  onNavigateToLocation?: () => void;
 }
 
 
@@ -104,6 +105,7 @@ export const DirectApiBot: React.FC<
   onUpdateSettings,
   onAddLog,
   onShiftsUpdated,
+  onNavigateToLocation,
 }) => {
 
   const [isBotRunning, setIsBotRunning] =
@@ -1326,150 +1328,41 @@ export const DirectApiBot: React.FC<
           Current Location
           ===================================================== */}
 
-      <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/30 via-slate-900/80 to-indigo-950/20 p-5">
-
-        <div className="flex flex-col lg:flex-row gap-5">
-
-          {/* Location title */}
-
-          <div className="lg:w-1/3">
-
-            <div className="flex items-center gap-3">
-
-              <div className="p-3 rounded-xl bg-cyan-500/15 border border-cyan-500/30">
-
-                <MapPin className="w-6 h-6 text-cyan-400" />
-
-              </div>
-
-              <div>
-
+      <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/30 via-slate-900/80 to-indigo-950/20 p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-cyan-500/15 border border-cyan-500/30 shrink-0">
+              <MapPin className="w-6 h-6 text-cyan-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
                 <h3 className="text-sm font-black text-white">
-                  تغيير اللوكيشن
+                  خريطة اللوكيشن & Mock Location
                 </h3>
-
-                <p className="text-[11px] text-slate-400 mt-1">
-                  موقع البحث داخل NATAN
-                </p>
-
-              </div>
-
-            </div>
-
-
-            <div className="mt-4 rounded-xl bg-slate-950/60 border border-slate-800 p-3">
-
-              <div className="text-[10px] text-slate-500">
-                الموقع الحالي
-              </div>
-
-              <div className="flex items-center gap-2 mt-1">
-
-                <MapPinned className="w-4 h-4 text-cyan-400" />
-
-                <span className="text-sm font-black text-white">
-                  {selectedCity?.name ||
-                    "غير محدد"}
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
+                  {selectedCity ? selectedCity.name : 'متزامن مع الخريطة'}
                 </span>
-
               </div>
-
-              {selectedCity?.nameEn && (
-                <div className="text-[10px] text-slate-500 mt-1">
-                  {selectedCity.nameEn}
-                </div>
-              )}
-
+              <p className="text-[11px] text-slate-400 mt-1">
+                {typeof settings.selectedLatitude === 'number' && typeof settings.selectedLongitude === 'number'
+                  ? `الإحداثيات الحالية: (${settings.selectedLatitude.toFixed(4)}, ${settings.selectedLongitude.toFixed(4)}) — الفروع المحددة: ${selectedDistricts.length || 'الكل'}`
+                  : 'حدد نقطة على الخريطة أو استخدم موقع الهاتف لتطبيق Mock Location الرسمي'}
+              </p>
             </div>
-
           </div>
 
-
-          {/* City */}
-
-          <div className="lg:w-1/3">
-
-            <label className="block text-xs font-bold text-slate-300 mb-2">
-              المدينة
-            </label>
-
-            <div className="relative">
-
-              <select
-                value={
-                  settings.selectedCity
-                }
-                onChange={(e) =>
-                  handleCityChange(
-                    e.target.value,
-                  )
-                }
-                className="w-full appearance-none bg-slate-950 border border-slate-700 hover:border-cyan-500/50 rounded-xl px-4 py-3 pr-10 text-xs font-bold text-white focus:outline-none focus:border-cyan-500"
+          <div className="flex items-center gap-2 shrink-0">
+            {onNavigateToLocation && (
+              <button
+                type="button"
+                onClick={onNavigateToLocation}
+                className="w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 via-cyan-500 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/25 active:scale-95 cursor-pointer"
               >
-
-                {SAUDI_CITIES.map(
-                  (city) => (
-                    <option
-                      key={city.id}
-                      value={city.id}
-                    >
-                      {city.name}
-                      {city.nameEn
-                        ? ` — ${city.nameEn}`
-                        : ""}
-                    </option>
-                  ),
-                )}
-
-              </select>
-
-              <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-
-            </div>
-
+                <MapPinned className="w-4 h-4" />
+                <span>فتح خريطة اللوكيشن 🗺️</span>
+              </button>
+            )}
           </div>
-
-
-          {/* District summary */}
-
-          <div className="lg:w-1/3">
-
-            <label className="block text-xs font-bold text-slate-300 mb-2">
-              الفروع المحددة
-            </label>
-
-            <div className="rounded-xl bg-slate-950 border border-slate-700 p-3 min-h-[48px]">
-
-              {selectedDistricts.length >
-              0 ? (
-
-                <div className="flex flex-wrap gap-1.5">
-
-                  {selectedDistricts.map(
-                    (district) => (
-                      <span
-                        key={district}
-                        className="text-[10px] bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 rounded-lg px-2 py-1"
-                      >
-                        {district}
-                      </span>
-                    ),
-                  )}
-
-                </div>
-
-              ) : (
-
-                <span className="text-[11px] text-slate-500">
-                  المدينة فقط — جميع الفروع
-                </span>
-
-              )}
-
-            </div>
-
-          </div>
-
         </div>
 
 

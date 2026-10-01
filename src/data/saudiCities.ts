@@ -89,3 +89,28 @@ export const DAYS_OF_WEEK = [
   'الجمعة',
   'السبت'
 ];
+
+export const SAUDI_CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  riyadh: { lat: 24.7136, lng: 46.6753 },
+  jeddah: { lat: 21.5433, lng: 39.1728 },
+  dammam_khobar: { lat: 26.4207, lng: 50.0888 },
+  makkah: { lat: 21.3891, lng: 39.8579 },
+  madinah: { lat: 24.5247, lng: 39.5692 },
+};
+
+export function getClosestSaudiCity(lat: number, lng: number): SaudiCity {
+  let closest = SAUDI_CITIES[0];
+  let minDistance = Infinity;
+
+  for (const city of SAUDI_CITIES) {
+    const coords = SAUDI_CITY_COORDINATES[city.id];
+    if (!coords) continue;
+    const dist = Math.hypot(coords.lat - lat, coords.lng - lng);
+    if (dist < minDistance) {
+      minDistance = dist;
+      closest = city;
+    }
+  }
+
+  return closest;
+}

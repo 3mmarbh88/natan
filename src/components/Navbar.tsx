@@ -6,10 +6,8 @@ import {
   Sparkles,
   Play,
   Square,
-  MessageCircle,
   User,
   UserPlus,
-  Globe,
   LogOut,
 } from 'lucide-react';
 
@@ -56,15 +54,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const {
     t,
-    toggleLanguage,
     isAr,
   } = useLanguage();
 
   const [saudiTime, setSaudiTime] =
     useState<string>('');
-
-  const [showSupportMenu, setShowSupportMenu] =
-    useState(false);
 
   /*
    * ============================================================
@@ -204,32 +198,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           )
         )
       : 0;
-
-  /*
-   * ============================================================
-   * WHATSAPP
-   * ============================================================
-   */
-
-  const openWhatsApp = (
-    phone: string
-  ) => {
-    const message = isAr
-      ? 'السلام عليكم، أحتاج إلى الدعم الفني لبرنامج NATAN.'
-      : 'Hello, I need technical support for NATAN.';
-
-    const url =
-      `https://wa.me/${phone}` +
-      `?text=${encodeURIComponent(message)}`;
-
-    window.open(
-      url,
-      '_blank',
-      'noopener,noreferrer'
-    );
-
-    setShowSupportMenu(false);
-  };
 
   return (
     <header
@@ -498,644 +466,149 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* ====================================================
-              QUICK CONTROLS
-              ==================================================== */}
-
-          <div
-            className="
-              flex
-              items-center
-              gap-2
-            "
-          >
-
-            {/* ==================================================
-                AUTO BOOKING
-                ================================================== */}
-
+          {/* Quick Engine toggle & Logout on Mobile */}
+          <div className="flex items-center gap-1.5 md:hidden">
             <button
               type="button"
               onClick={() =>
                 onUpdateSettings({
-                  autoBooking:
-                    !settings.autoBooking,
+                  monitoring: !settings.monitoring,
                 })
               }
-              className={`
-                flex
-                items-center
-                gap-1.5
-                px-3
-                py-2
-                min-h-[40px]
-                rounded-xl
-                text-xs
-                font-bold
-                transition-all
-                cursor-pointer
-                border
-                active:scale-95
-
-                ${
-                  settings.autoBooking
-                    ? `
-                      bg-emerald-500/20
-                      text-emerald-300
-                      border-emerald-500/40
-                      shadow-sm
-                      shadow-emerald-500/20
-                    `
-                    : `
-                      bg-slate-800
-                      text-slate-400
-                      border-slate-700
-                    `
-                }
-              `}
-              title={t.autoBookingLabel}
+              className={`flex items-center gap-1.5 px-3 py-1.5 min-h-[40px] rounded-xl text-xs font-black transition-all shadow-md active:scale-95 cursor-pointer ${
+                settings.monitoring
+                  ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30 ring-2 ring-rose-400/30'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30 ring-2 ring-emerald-400/30'
+              }`}
             >
-              <Zap
-                className={`
-                  w-3.5
-                  h-3.5
-                  ${
-                    settings.autoBooking
-                      ? `
-                        text-emerald-400
-                        fill-emerald-400
-                      `
-                      : 'text-slate-500'
-                  }
-                `}
-              />
+              {settings.monitoring ? (
+                <>
+                  <Square className="w-3.5 h-3.5 fill-white shrink-0" />
+                  <span>{t.stopMonitoring}</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5 fill-white shrink-0" />
+                  <span>{t.startMonitoring}</span>
+                </>
+              )}
+            </button>
 
-              <span className="inline">
-                {t.autoBookingLabel}
-              </span>
-
-              <span
-                className="
-                  font-black
-                  underline
-                  decoration-emerald-400/50
-                "
+            {authSession && onLogout && (
+              <button
+                type="button"
+                onClick={onLogout}
+                title={isAr ? 'تسجيل الخروج' : 'Logout'}
+                className="flex items-center justify-center p-2 min-h-[40px] min-w-[40px] rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 transition-all cursor-pointer active:scale-95"
               >
-                {settings.autoBooking
-                  ? isAr
-                    ? 'شغال'
-                    : 'ON'
-                  : isAr
-                    ? 'معطل'
-                    : 'OFF'}
-              </span>
-            </button>
-
-            {/* ==================================================
-                LANGUAGE
-                ================================================== */}
-
-            <button
-              type="button"
-              onClick={toggleLanguage}
-              className="
-                flex
-                items-center
-                gap-1.5
-                px-3
-                py-2
-                min-h-[40px]
-                rounded-xl
-                bg-slate-800/90
-                hover:bg-slate-700
-                text-purple-300
-                hover:text-white
-                border
-                border-purple-500/30
-                text-xs
-                font-bold
-                transition-all
-                cursor-pointer
-                shadow-sm
-                active:scale-95
-              "
-              title={
-                isAr
-                  ? 'Switch to English'
-                  : 'التحويل إلى اللغة العربية'
-              }
-            >
-              <Globe
-                className="
-                  w-3.5
-                  h-3.5
-                  text-purple-400
-                "
-              />
-
-              <span>
-                {isAr
-                  ? 'English'
-                  : 'العربية'}
-              </span>
-            </button>
+                <LogOut className="w-4 h-4 shrink-0" />
+              </button>
+            )}
           </div>
         </div>
 
         {/* ====================================================
-            LIVE CONTROLS & STATUS
+            ROW 2: LIVE CONTROLS (Grid on Mobile, Flex on Desktop)
             ==================================================== */}
 
         <div
           className="
-            flex
-            items-center
+            grid
+            grid-cols-4
             gap-1.5
-            sm:gap-2
             w-full
+            md:flex
             md:w-auto
-            justify-between
-            md:justify-end
-            overflow-x-auto
-            py-0.5
-            md:py-0
-            scrollbar-none
+            md:items-center
+            md:gap-2
           "
         >
-
-          {/* ==================================================
-              BOOKED COUNTER
-              ================================================== */}
-
-          <div
-            className="
-              flex
-              items-center
-              gap-1.5
-              px-3
-              py-2
-              min-h-[42px]
-              rounded-xl
-              bg-emerald-950/40
-              border
-              border-emerald-800/50
-              text-xs
-              text-emerald-300
-              shrink-0
-            "
-          >
-            <ShieldCheck
-              className="
-                w-4
-                h-4
-                text-emerald-400
-                shrink-0
-              "
-            />
-
-            <span className="whitespace-nowrap font-medium">
-              {t.bookedCount}
-            </span>
-
-            <span
-              className="
-                font-bold
-                text-emerald-400
-                font-mono
-              "
-            >
-              {totalCaptured}
-            </span>
-          </div>
-
-          {/* ==================================================
-              WHATSAPP SUPPORT
-              ================================================== */}
-
-          <div className="relative shrink-0">
-
-            <button
-              type="button"
-              onClick={() => {
-                if (onOpenWhatsApp) {
-                  onOpenWhatsApp();
-                } else {
-                  setShowSupportMenu(
-                    (value) => !value
-                  );
-                }
-              }}
-              title={t.whatsappSupport}
-              aria-label={t.whatsappSupport}
-              className="
-                flex
-                items-center
-                justify-center
-                w-11
-                h-11
-                min-w-[44px]
-                min-h-[44px]
-                rounded-xl
-                bg-emerald-500/10
-                hover:bg-emerald-500/20
-                text-emerald-300
-                border
-                border-emerald-500/30
-                transition-all
-                cursor-pointer
-                shrink-0
-                active:scale-95
-              "
-            >
-              <MessageCircle
-                className="
-                  w-5
-                  h-5
-                  fill-emerald-400/20
-                "
-              />
-            </button>
-
-            {showSupportMenu &&
-              !onOpenWhatsApp && (
-                <div
-                  className={`
-                    absolute
-                    top-full
-                    mt-2
-                    ${
-                      isAr
-                        ? 'right-0'
-                        : 'left-0'
-                    }
-                    w-56
-                    rounded-2xl
-                    border
-                    border-slate-700
-                    bg-slate-900
-                    shadow-2xl
-                    p-3
-                    z-50
-                  `}
-                >
-                  <div
-                    className="
-                      text-xs
-                      font-bold
-                      text-white
-                      mb-3
-                      text-center
-                    "
-                  >
-                    {t.whatsappSupport}
-                  </div>
-
-                  {/* Support 1 */}
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openWhatsApp(
-                        '97333314353'
-                      )
-                    }
-                    className="
-                      w-full
-                      min-h-[44px]
-                      flex
-                      items-center
-                      justify-center
-                      gap-3
-                      px-3
-                      py-3
-                      rounded-xl
-                      bg-emerald-500/10
-                      hover:bg-emerald-500/20
-                      border
-                      border-emerald-500/20
-                      text-emerald-300
-                      transition-all
-                      active:scale-95
-                    "
-                    title={
-                      isAr
-                        ? 'فتح واتساب للدعم الفني'
-                        : 'Open WhatsApp Technical Support'
-                    }
-                    aria-label={
-                      isAr
-                        ? 'فتح واتساب للدعم الفني'
-                        : 'Open WhatsApp Technical Support'
-                    }
-                  >
-                    <MessageCircle
-                      className="
-                        w-5
-                        h-5
-                        fill-emerald-400/20
-                      "
-                    />
-
-                    <span
-                      className="
-                        text-xs
-                        font-bold
-                      "
-                    >
-                      {isAr
-                        ? 'الدعم الفني'
-                        : 'Technical Support'}
-                    </span>
-                  </button>
-
-                  {/* Support 2 */}
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openWhatsApp(
-                        '97333269372'
-                      )
-                    }
-                    className="
-                      w-full
-                      min-h-[44px]
-                      flex
-                      items-center
-                      justify-center
-                      gap-3
-                      px-3
-                      py-3
-                      mt-2
-                      rounded-xl
-                      bg-emerald-500/10
-                      hover:bg-emerald-500/20
-                      border
-                      border-emerald-500/20
-                      text-emerald-300
-                      transition-all
-                      active:scale-95
-                    "
-                    title={
-                      isAr
-                        ? 'فتح واتساب لخدمة العملاء'
-                        : 'Open WhatsApp Customer Service'
-                    }
-                    aria-label={
-                      isAr
-                        ? 'فتح واتساب لخدمة العملاء'
-                        : 'Open WhatsApp Customer Service'
-                    }
-                  >
-                    <MessageCircle
-                      className="
-                        w-5
-                        h-5
-                        fill-emerald-400/20
-                      "
-                    />
-
-                    <span
-                      className="
-                        text-xs
-                        font-bold
-                      "
-                    >
-                      {isAr
-                        ? 'خدمة العملاء'
-                        : 'Customer Service'}
-                    </span>
-                  </button>
-                </div>
-              )}
-          </div>
-
-          {/* ==================================================
-              TEST FLASH DROP
-              ================================================== */}
-
-          <button
-            type="button"
-            onClick={
-              onTriggerTestDrop
-            }
-            title={t.flashShift}
-            className="
-              flex
-              items-center
-              gap-1.5
-              px-3.5
-              py-2
-              min-h-[42px]
-              rounded-xl
-              bg-gradient-to-r
-              from-purple-600
-              via-purple-500
-              to-indigo-600
-              hover:from-purple-500
-              hover:to-indigo-500
-              text-white
-              text-xs
-              font-black
-              transition-all
-              shadow-md
-              shadow-purple-500/25
-              cursor-pointer
-              shrink-0
-              active:scale-95
-            "
-          >
-            <Zap
-              className="
-                w-4
-                h-4
-                fill-white
-                shrink-0
-              "
-            />
-
-            <span className="whitespace-nowrap">
-              {t.flashShift}
-            </span>
-          </button>
-
-          {/* ==================================================
-              AI ADVISOR
-              ================================================== */}
-
-          <button
-            type="button"
-            onClick={
-              onOpenAiAdvisor
-            }
-            className="
-              flex
-              items-center
-              gap-1.5
-              px-3
-              py-2
-              min-h-[42px]
-              rounded-xl
-              bg-purple-500/10
-              hover:bg-purple-500/20
-              text-purple-300
-              border
-              border-purple-500/30
-              text-xs
-              font-bold
-              transition-colors
-              cursor-pointer
-              shrink-0
-              active:scale-95
-            "
-            title={t.aiAdvisor}
-          >
-            <Sparkles
-              className="
-                w-4
-                h-4
-                text-purple-400
-                shrink-0
-              "
-            />
-
-            <span className="whitespace-nowrap">
-              {t.aiAdvisor}
-            </span>
-          </button>
-
-          {/* ==================================================
-              MAIN ENGINE TOGGLE
-              ================================================== */}
-
+          {/* AUTO BOOKING */}
           <button
             type="button"
             onClick={() =>
               onUpdateSettings({
-                monitoring:
-                  !settings.monitoring,
+                autoBooking: !settings.autoBooking,
               })
             }
-            className={`
-              flex
-              items-center
-              gap-2
-              px-4
-              py-2
-              min-h-[44px]
-              rounded-xl
-              text-xs
-              font-black
-              transition-all
-              shadow-lg
-              cursor-pointer
-              shrink-0
-              active:scale-95
+            className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 min-h-[42px] rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer border active:scale-95 ${
+              settings.autoBooking
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm shadow-emerald-500/20'
+                : 'bg-slate-800 text-slate-400 border-slate-700'
+            }`}
+            title={t.autoBookingLabel}
+          >
+            <Zap className={`w-3.5 h-3.5 shrink-0 ${settings.autoBooking ? 'text-emerald-400 fill-emerald-400' : 'text-slate-500'}`} />
+            <span className="truncate">{isAr ? 'تلقائي' : 'Auto'}</span>
+            <span className={`text-[10px] font-black px-1 rounded ${settings.autoBooking ? 'bg-emerald-500/30 text-emerald-200' : 'bg-slate-700 text-slate-300'}`}>
+              {settings.autoBooking ? (isAr ? 'ON' : 'ON') : (isAr ? 'OFF' : 'OFF')}
+            </span>
+          </button>
 
-              ${
-                settings.monitoring
-                  ? `
-                    bg-rose-600
-                    hover:bg-rose-500
-                    text-white
-                    shadow-rose-600/30
-                    ring-2
-                    ring-rose-400/30
-                  `
-                  : `
-                    bg-emerald-600
-                    hover:bg-emerald-500
-                    text-white
-                    shadow-emerald-600/30
-                    ring-2
-                    ring-emerald-400/30
-                  `
-              }
-            `}
+          {/* TEST FLASH DROP */}
+          <button
+            type="button"
+            onClick={onTriggerTestDrop}
+            title={t.flashShift}
+            className="flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3.5 py-2 min-h-[42px] rounded-xl bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-[11px] sm:text-xs font-black transition-all shadow-md shadow-purple-500/25 cursor-pointer active:scale-95"
+          >
+            <Zap className="w-3.5 h-3.5 fill-white shrink-0" />
+            <span className="truncate">{t.flashShift}</span>
+          </button>
+
+          {/* AI ADVISOR */}
+          <button
+            type="button"
+            onClick={onOpenAiAdvisor}
+            className="flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 min-h-[42px] rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[11px] sm:text-xs font-bold transition-colors cursor-pointer active:scale-95"
+            title={t.aiAdvisor}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+            <span className="truncate">{isAr ? 'المستشار' : 'AI'}</span>
+          </button>
+
+          {/* BOOKED COUNTER */}
+          <div className="flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 min-h-[42px] rounded-xl bg-emerald-950/40 border border-emerald-800/50 text-[11px] sm:text-xs text-emerald-300">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="truncate">{isAr ? 'محجوز:' : 'Booked:'}</span>
+            <span className="font-bold text-emerald-400 font-mono">{totalCaptured}</span>
+          </div>
+
+          {/* MAIN ENGINE TOGGLE (Desktop only) */}
+          <button
+            type="button"
+            onClick={() => onUpdateSettings({ monitoring: !settings.monitoring })}
+            className={`hidden md:flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-xl text-xs font-black transition-all shadow-lg cursor-pointer shrink-0 active:scale-95 ${
+              settings.monitoring
+                ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30 ring-2 ring-rose-400/30'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30 ring-2 ring-emerald-400/30'
+            }`}
           >
             {settings.monitoring ? (
               <>
-                <Square
-                  className="
-                    w-4
-                    h-4
-                    fill-white
-                    shrink-0
-                  "
-                />
-
-                <span className="whitespace-nowrap">
-                  {t.stopMonitoring}
-                </span>
+                <Square className="w-4 h-4 fill-white shrink-0" />
+                <span className="whitespace-nowrap">{t.stopMonitoring}</span>
               </>
             ) : (
               <>
-                <Play
-                  className="
-                    w-4
-                    h-4
-                    fill-white
-                    shrink-0
-                  "
-                />
-
-                <span className="whitespace-nowrap">
-                  {t.startMonitoring}
-                </span>
+                <Play className="w-4 h-4 fill-white shrink-0" />
+                <span className="whitespace-nowrap">{t.startMonitoring}</span>
               </>
             )}
           </button>
 
-          {/* ==================================================
-              LOGOUT
-              ================================================== */}
-
-          {authSession &&
-            onLogout && (
-              <button
-                type="button"
-                onClick={onLogout}
-                title={
-                  isAr
-                    ? 'تسجيل الخروج'
-                    : 'Logout'
-                }
-                className="
-                  flex
-                  items-center
-                  gap-1.5
-                  px-3
-                  py-2
-                  min-h-[42px]
-                  rounded-xl
-                  bg-rose-500/10
-                  hover:bg-rose-500/20
-                  text-rose-300
-                  border
-                  border-rose-500/30
-                  text-xs
-                  font-bold
-                  transition-all
-                  cursor-pointer
-                  shrink-0
-                  active:scale-95
-                "
-              >
-                <LogOut
-                  className="
-                    w-4
-                    h-4
-                    shrink-0
-                  "
-                />
-
-                <span className="whitespace-nowrap">
-                  {isAr
-                    ? 'تسجيل الخروج'
-                    : 'Logout'}
-                </span>
-              </button>
-            )}
+          {/* LOGOUT (Desktop only) */}
+          {authSession && onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              title={isAr ? 'تسجيل الخروج' : 'Logout'}
+              className="hidden md:flex items-center gap-1.5 px-3 py-2 min-h-[42px] rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold transition-all cursor-pointer shrink-0 active:scale-95"
+            >
+              <LogOut className="w-4 h-4 shrink-0" />
+              <span className="whitespace-nowrap">{isAr ? 'تسجيل الخروج' : 'Logout'}</span>
+            </button>
+          )}
         </div>
       </div>
     </header>

@@ -99,12 +99,23 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
           </div>
         </div>
 
-        {/* Production status: simulation controls intentionally removed. */}
+        {/* Production status and quick API Bot button */}
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-[11px] sm:text-xs font-bold">
             <Server className="w-3.5 h-3.5" />
             <span>{isAr ? 'مصدر حقيقي: Ninja API' : 'Real source: Ninja API'}</span>
           </div>
+
+          {onNavigateToApiBot && (
+            <button
+              type="button"
+              onClick={onNavigateToApiBot}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-[11px] sm:text-xs font-black shadow-md shadow-purple-500/25 active:scale-95 cursor-pointer"
+            >
+              <Server className="w-3.5 h-3.5 text-purple-200" />
+              <span>⚡ API Bot</span>
+            </button>
+          )}
         </div>
       </div>
 
