@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
-  ShieldCheck,
   RefreshCw,
   Sparkles,
 } from 'lucide-react';
@@ -18,6 +17,7 @@ import {
 import { soundFX } from '../utils/audio';
 import { haptics } from '../utils/haptics';
 import type { AppAuthSession } from '../types';
+import { CameraFaceScanner } from './CameraFaceScanner';
 
 interface BiometricPromptModalProps {
   isOpen: boolean;
@@ -26,6 +26,7 @@ interface BiometricPromptModalProps {
   preferredMode?: BiometricMode;
   currentSession?: AppAuthSession | null;
   modeText?: string;
+  targetUsername?: string;
 }
 
 export default function BiometricPromptModal({
@@ -35,6 +36,7 @@ export default function BiometricPromptModal({
   preferredMode = 'fingerprint',
   currentSession,
   modeText,
+  targetUsername,
 }: BiometricPromptModalProps) {
   const [mode, setMode] = useState<BiometricMode>(
     preferredMode === 'face' ? 'face' : 'fingerprint'
@@ -56,7 +58,25 @@ export default function BiometricPromptModal({
 
   if (!isOpen) return null;
 
-  const handleStartScan = async (selectedMode: BiometricMode = mode) => {
+  // If Face mode is active, render the real Camera Face Scanner & Matcher!
+  if (mode === 'face') {
+    return (
+      <CameraFaceScanner
+        isOpen={isOpen}
+        onClose={onClose}
+        onSuccess={onSuccess}
+        currentSession={currentSession}
+        targetUsername={targetUsername}
+        onSwitchToFingerprint={() => {
+          setMode('fingerprint');
+          setStatus('idle');
+          setErrorMessage('');
+        }}
+      />
+    );
+  }
+
+  const handleStartFingerprintScan = async () => {
     haptics.vibrateTick();
     setStatus('scanning');
     setErrorMessage('');
@@ -75,12 +95,9 @@ export default function BiometricPromptModal({
 
     try {
       const result = await authenticateWithBiometrics({
-        mode: selectedMode,
-        title:
-          selectedMode === 'face'
-            ? 'المصادقة ببصمة الوجه NATAN'
-            : 'المصادقة ببصمة الإصبع NATAN',
-        subtitle: 'ضع إصبعك على المستشعر أو انظر إلى الكاميرا',
+        mode: 'fingerprint',
+        title: 'المصادقة ببصمة الإصبع NATAN',
+        subtitle: 'المس مستشعر البصمة في هاتفك للدخول السريع',
       });
 
       clearInterval(interval);
@@ -96,7 +113,7 @@ export default function BiometricPromptModal({
 
         setTimeout(() => {
           if (session) {
-            saveBiometricSession(session, selectedMode);
+            saveBiometricSession(session, 'fingerprint');
             onSuccess(session);
           } else {
             // Simulated / guest session
@@ -114,7 +131,7 @@ export default function BiometricPromptModal({
               licenseKey: 'NATAN-BIO-KEY',
               maxDevices: 2,
             };
-            saveBiometricSession(fallbackSession, selectedMode);
+            saveBiometricSession(fallbackSession, 'fingerprint');
             onSuccess(fallbackSession);
           }
           onClose();
@@ -138,22 +155,14 @@ export default function BiometricPromptModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
       <div className="relative w-full max-w-sm rounded-3xl bg-slate-900 border border-slate-700/80 shadow-2xl p-6 overflow-hidden">
         {/* Glow ambient background */}
-        <div
-          className={`absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl pointer-events-none transition-colors duration-500 ${
-            mode === 'face' ? 'bg-cyan-500/20' : 'bg-emerald-500/20'
-          }`}
-        />
-        <div
-          className={`absolute -bottom-24 -right-24 w-48 h-48 rounded-full blur-3xl pointer-events-none transition-colors duration-500 ${
-            mode === 'face' ? 'bg-blue-600/20' : 'bg-green-600/20'
-          }`}
-        />
+        <div className="absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl pointer-events-none bg-emerald-500/20" />
+        <div className="absolute -bottom-24 -right-24 w-48 h-48 rounded-full blur-3xl pointer-events-none bg-green-600/20" />
 
         {/* Close Button */}
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-4 left-4 p-2 text-slate-400 hover:text-white rounded-full bg-slate-800/80 transition-colors"
+          className="absolute top-4 left-4 p-2 text-slate-400 hover:text-white rounded-full bg-slate-800/80 transition-colors cursor-pointer"
           title="إغلاق"
         >
           <X className="w-5 h-5" />
@@ -166,12 +175,10 @@ export default function BiometricPromptModal({
             <span>نظام الأمان الحيوي NATAN</span>
           </div>
           <h3 className="text-xl font-black text-white">
-            {modeText || (mode === 'face' ? 'تسجيل الدخول ببصمة الوجه' : 'تسجيل الدخول ببصمة الإصبع')}
+            {modeText || 'تسجيل الدخول ببصمة الإصبع'}
           </h3>
           <p className="text-xs text-slate-400 mt-1">
-            {mode === 'face'
-              ? 'وجّه الكاميرا نحو وجهك للمصادقة الفورية'
-              : 'المس مستشعر البصمة في هاتفك للدخول السريع'}
+            المس مستشعر البصمة في هاتفك للدخول السريع
           </p>
         </div>
 
@@ -185,11 +192,7 @@ export default function BiometricPromptModal({
               setErrorMessage('');
               haptics.vibrateTick();
             }}
-            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all min-h-[44px] ${
-              mode === 'fingerprint'
-                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                : 'text-slate-400 hover:text-white'
-            }`}
+            className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all min-h-[44px] bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 cursor-pointer"
           >
             <Fingerprint className="w-4 h-4" />
             <span>بصمة الإصبع</span>
@@ -199,32 +202,24 @@ export default function BiometricPromptModal({
             type="button"
             onClick={() => {
               setMode('face');
-              setStatus('idle');
-              setErrorMessage('');
               haptics.vibrateTick();
             }}
-            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all min-h-[44px] ${
-              mode === 'face'
-                ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-600/30'
-                : 'text-slate-400 hover:text-white'
-            }`}
+            className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all min-h-[44px] text-slate-400 hover:text-white cursor-pointer"
           >
-            <ScanFace className="w-4 h-4" />
-            <span>بصمة الوجه</span>
+            <ScanFace className="w-4 h-4 text-cyan-400" />
+            <span>بصمة الوجه (الكاميرا)</span>
           </button>
         </div>
 
         {/* Biometric Interactive Scanner Graphic */}
         <div className="relative flex flex-col items-center justify-center my-6">
           <div
-            onClick={() => handleStartScan(mode)}
+            onClick={handleStartFingerprintScan}
             role="button"
             tabIndex={0}
             className={`relative flex items-center justify-center w-36 h-36 rounded-3xl border-2 transition-all cursor-pointer select-none active:scale-95 ${
               status === 'scanning'
-                ? mode === 'face'
-                  ? 'border-cyan-400 bg-cyan-950/40 shadow-xl shadow-cyan-500/20'
-                  : 'border-emerald-400 bg-emerald-950/40 shadow-xl shadow-emerald-500/20'
+                ? 'border-emerald-400 bg-emerald-950/40 shadow-xl shadow-emerald-500/20'
                 : status === 'success'
                 ? 'border-emerald-400 bg-emerald-900/30'
                 : status === 'error'
@@ -235,9 +230,7 @@ export default function BiometricPromptModal({
             {/* Animated Laser Scan Bar */}
             {status === 'scanning' && (
               <div
-                className={`absolute inset-x-0 h-1 blur-sm animate-pulse transition-all ${
-                  mode === 'face' ? 'bg-cyan-400' : 'bg-emerald-400'
-                }`}
+                className="absolute inset-x-0 h-1 blur-sm animate-pulse transition-all bg-emerald-400"
                 style={{
                   top: `${progress}%`,
                   transition: 'top 0.15s ease-out',
@@ -250,19 +243,6 @@ export default function BiometricPromptModal({
               <CheckCircle2 className="w-16 h-16 text-emerald-400 animate-bounce" />
             ) : status === 'error' ? (
               <AlertCircle className="w-16 h-16 text-rose-400 animate-pulse" />
-            ) : mode === 'face' ? (
-              <div className="relative flex items-center justify-center">
-                <ScanFace
-                  className={`w-20 h-20 transition-all ${
-                    status === 'scanning'
-                      ? 'text-cyan-400 scale-105'
-                      : 'text-slate-300'
-                  }`}
-                />
-                {status === 'scanning' && (
-                  <div className="absolute inset-0 border-2 border-dashed border-cyan-400/60 rounded-xl animate-spin" />
-                )}
-              </div>
             ) : (
               <div className="relative flex items-center justify-center">
                 <Fingerprint
@@ -283,8 +263,8 @@ export default function BiometricPromptModal({
           <div className="mt-4 text-center">
             {status === 'scanning' && (
               <p className="text-sm font-bold text-white flex items-center justify-center gap-1.5 animate-pulse">
-                <RefreshCw className="w-4 h-4 animate-spin text-purple-400" />
-                <span>جارٍ التحقق والمصادقة الحيوية...</span>
+                <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
+                <span>جارٍ التحقق من بصمة الإصبع...</span>
               </p>
             )}
             {status === 'success' && (
@@ -301,7 +281,7 @@ export default function BiometricPromptModal({
             )}
             {status === 'idle' && (
               <p className="text-xs text-slate-400">
-                اضغط على الأيقونة للبدء أو ضع إصبعك / انظر للكاميرا
+                المس الأيقونة أو ضع إصبعك على المستشعر
               </p>
             )}
           </div>
@@ -310,13 +290,9 @@ export default function BiometricPromptModal({
         {/* Action Button */}
         <button
           type="button"
-          onClick={() => handleStartScan(mode)}
+          onClick={handleStartFingerprintScan}
           disabled={status === 'scanning'}
-          className={`w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl text-sm font-black text-white transition-all shadow-lg min-h-[48px] active:scale-95 ${
-            mode === 'face'
-              ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 shadow-cyan-600/30'
-              : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/30'
-          }`}
+          className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl text-sm font-black text-white transition-all shadow-lg min-h-[48px] active:scale-95 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/30 cursor-pointer"
         >
           {status === 'scanning' ? (
             <>
@@ -325,16 +301,8 @@ export default function BiometricPromptModal({
             </>
           ) : (
             <>
-              {mode === 'face' ? (
-                <ScanFace className="w-5 h-5" />
-              ) : (
-                <Fingerprint className="w-5 h-5" />
-              )}
-              <span>
-                {mode === 'face'
-                  ? 'بدء فحص بصمة الوجه'
-                  : 'بدء فحص بصمة الإصبع'}
-              </span>
+              <Fingerprint className="w-5 h-5" />
+              <span>بدء فحص بصمة الإصبع</span>
             </>
           )}
         </button>
@@ -343,7 +311,7 @@ export default function BiometricPromptModal({
         <div className="mt-4 pt-3 border-t border-slate-800 text-center">
           <p className="text-[11px] text-slate-500 flex items-center justify-center gap-1">
             <Sparkles className="w-3 h-3 text-amber-400" />
-            <span>متوافق مع مستشعرات Android الرسمية وApple Face ID / Touch ID</span>
+            <span>متوافق مع مستشعرات Android الرسمية وApple Touch ID</span>
           </p>
         </div>
       </div>

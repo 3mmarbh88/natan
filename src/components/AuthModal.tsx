@@ -1280,32 +1280,44 @@ export default function AuthModal({
                     : (isAr ? 'تسجيل الدخول' : 'Sign In')}
                 </button>
 
-                {/* Biometric Quick Login Section - Unified Single Action */}
+                {/* Biometric Quick Login Section */}
                 <div className="pt-2">
                   <div className="relative flex py-2 items-center">
                     <div className="flex-grow border-t border-slate-800"></div>
                     <span className="flex-shrink mx-2 text-[10px] sm:text-[11px] font-bold text-slate-400 bg-slate-950 px-2">
-                      {isAr ? 'أو المصادقة الحيوية' : 'Or Biometric Sign In'}
+                      {isAr ? 'أو المصادقة الحيوية الذكية' : 'Or Smart Biometric Sign In'}
                     </span>
                     <div className="flex-grow border-t border-slate-800"></div>
                   </div>
 
-                  {/* Single Unified Biometric Action */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      haptics.vibrateTick();
-                      setBiometricModalMode('fingerprint');
-                      setShowBiometricModal(true);
-                    }}
-                    className="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl border border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-cyan-500/15 hover:from-emerald-500/25 hover:to-cyan-500/25 text-emerald-300 font-bold text-xs sm:text-sm shadow-sm transition active:scale-[0.98] min-h-[46px] cursor-pointer"
-                  >
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <Fingerprint className="w-5 h-5 text-emerald-400" />
-                      <ScanFace className="w-5 h-5 text-cyan-400" />
-                    </div>
-                    <span className="truncate">{isAr ? 'الدخول السريع بالبصمة الحيوية (إصبع / وجه)' : 'Quick Biometric Sign In (Fingerprint & Face ID)'}</span>
-                  </button>
+                  {/* Dual Biometric Actions: Fingerprint & Face Camera */}
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptics.vibrateTick();
+                        setBiometricModalMode('fingerprint');
+                        setShowBiometricModal(true);
+                      }}
+                      className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl border border-emerald-500/40 bg-gradient-to-b from-emerald-500/15 to-emerald-950/40 hover:from-emerald-500/25 hover:to-emerald-900/50 text-emerald-300 font-bold text-xs sm:text-sm shadow-sm transition active:scale-[0.98] min-h-[46px] cursor-pointer"
+                    >
+                      <Fingerprint className="w-5 h-5 text-emerald-400 shrink-0" />
+                      <span className="truncate">{isAr ? 'بصمة الإصبع' : 'Fingerprint'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptics.vibrateTick();
+                        setBiometricModalMode('face');
+                        setShowBiometricModal(true);
+                      }}
+                      className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl border border-cyan-500/40 bg-gradient-to-b from-cyan-500/15 to-cyan-950/40 hover:from-cyan-500/25 hover:to-cyan-900/50 text-cyan-300 font-bold text-xs sm:text-sm shadow-sm transition active:scale-[0.98] min-h-[46px] cursor-pointer"
+                    >
+                      <ScanFace className="w-5 h-5 text-cyan-400 shrink-0 animate-pulse" />
+                      <span className="truncate">{isAr ? 'بصمة الوجه (كاميرا)' : 'Face ID (Camera)'}</span>
+                    </button>
+                  </div>
 
                   {/* Biometric toggle checkbox */}
                   <label className="flex items-center gap-2 mt-2.5 cursor-pointer select-none text-[11px] sm:text-xs text-slate-400 hover:text-slate-300">
@@ -1315,7 +1327,7 @@ export default function AuthModal({
                       onChange={(e) => setAutoRememberBiometrics(e.target.checked)}
                       className="rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-blue-500/30 w-4 h-4 cursor-pointer"
                     />
-                    <span>{isAr ? 'تفعيل الدخول التلقائي بالبصمة على هذا الهاتف' : 'Enable auto biometric login on this phone'}</span>
+                    <span>{isAr ? 'تفعيل الدخول التلقائي بالبصمة على هذا الجهاز' : 'Enable auto biometric login on this device'}</span>
                   </label>
                 </div>
 
@@ -1742,12 +1754,17 @@ export default function AuthModal({
         <BiometricPromptModal
           isOpen={showBiometricModal}
           preferredMode={biometricModalMode}
+          targetUsername={loginUsername}
           currentSession={currentSession}
           onClose={() => setShowBiometricModal(false)}
           onSuccess={(session) => {
             saveSession(session);
             saveBiometricSession(session, biometricModalMode);
-            setSuccessMsg('تم تسجيل الدخول بالمصادقة الحيوية بنجاح!');
+            setSuccessMsg(
+              biometricModalMode === 'face'
+                ? (isAr ? 'تم تسجيل الدخول ببصمة الوجه بنجاح!' : 'Face ID login successful!')
+                : (isAr ? 'تم تسجيل الدخول ببصمة الإصبع بنجاح!' : 'Fingerprint login successful!')
+            );
             setShowBiometricModal(false);
           }}
         />
