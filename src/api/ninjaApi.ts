@@ -416,18 +416,11 @@ export async function bookNinjaShift(shiftId: string): Promise<unknown> {
     throw new NinjaApiError(401, "Ninja session is not authenticated");
   }
 
-  const bookingPath =
-    (import.meta.env.VITE_NINJA_BOOKING_PATH as string | undefined)?.trim();
-
-  if (!bookingPath) {
-    throw new NinjaApiError(
-      501,
-      "Real Ninja booking route is not configured. NATAN will not guess or fabricate a booking endpoint.",
-    );
-  }
-
-  const path = bookingPath.replace(
-    ":shiftId",
+  // This route was verified from the supplied Ninja APK analysis.
+  // Do not make it configurable at runtime: a wrong route can cause
+  // an unintended request to a different endpoint.
+  const path = NINJA_BOOKING_PATH_TEMPLATE.replace(
+    "{shiftId}",
     encodeURIComponent(shiftId),
   );
 
