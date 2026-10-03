@@ -692,8 +692,12 @@ export default function App() {
   const addLog = (
     type: LogEntry['type'],
     message: string,
-    durationMs?: number
+    durationMsOrDetails?: number | string,
+    maybeDurationMs?: number
   ) => {
+    const details = typeof durationMsOrDetails === 'string' ? durationMsOrDetails : undefined;
+    const durationMs = typeof durationMsOrDetails === 'number' ? durationMsOrDetails : maybeDurationMs;
+
     const now = new Date();
 
     const timeStr =
@@ -724,6 +728,7 @@ export default function App() {
       timestamp: timeStr,
       type,
       message,
+      details,
       durationMs,
     };
 
