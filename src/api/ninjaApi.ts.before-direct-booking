@@ -57,20 +57,14 @@ export class NinjaApiError extends Error {
     status: number,
     data: unknown,
   ) {
-    let message: string;
-    if (data === null || data === undefined || data === "") {
-      message = "بدون تفاصيل من الخادم";
-    } else if (typeof data === "string") {
-      message = data;
-    } else {
-      try {
-        message = JSON.stringify(data);
-      } catch {
-        message = String(data);
-      }
-    }
+    const message =
+      typeof data === "string"
+        ? data
+        : JSON.stringify(data);
 
-    super(`Ninja API ${status}: ${message}`);
+    super(
+      `Ninja API ${status}: ${message}`,
+    );
 
     this.name = "NinjaApiError";
     this.status = status;
@@ -222,10 +216,9 @@ export function setNinjaSession(session: NinjaSession | null): void {
   localStorage.setItem(NINJA_SESSION_KEY, JSON.stringify(session));
 }
 
-export async function ninjaRequest<T>(
+async function ninjaRequest<T>(
   path: string,
   options: RequestInit = {},
-  allowRefresh = true,
 ): Promise<T> {
   const session = getNinjaSession();
   const requestHeaders: Record<string, string> = {
@@ -238,15 +231,6 @@ export async function ninjaRequest<T>(
   }
   if (session?.deviceId) {
     requestHeaders["installation-uid"] = session.deviceId;
-  } else {
-    // Keep the installation identifier available even before a session exists.
-    // Authentication itself is still required for protected endpoints.
-    try {
-      const { getNinjaInstallationUid } = await import("../utils/ninjaAuth");
-      requestHeaders["installation-uid"] = getNinjaInstallationUid();
-    } catch {
-      // Ignore here; the server response will provide the authoritative error.
-    }
   }
 
   const response = await fetch(
@@ -275,17 +259,6 @@ export async function ninjaRequest<T>(
   }
 
   if (!response.ok) {
-    if (response.status === 401 && allowRefresh) {
-      try {
-        const { refreshNinjaToken } = await import('../utils/ninjaAuth');
-        await refreshNinjaToken();
-        return ninjaRequest<T>(path, options, false);
-      } catch {
-        // Preserve the original 401 when the official refresh flow cannot
-        // refresh the session. Never fabricate a replacement token.
-      }
-    }
-
     throw new NinjaApiError(
       response.status,
       data,
@@ -443,11 +416,18 @@ export async function bookNinjaShift(shiftId: string): Promise<unknown> {
     throw new NinjaApiError(401, "Ninja session is not authenticated");
   }
 
-  // This route was verified from the supplied Ninja APK analysis.
-  // Do not make it configurable at runtime: a wrong route can cause
-  // an unintended request to a different endpoint.
-  const path = NINJA_BOOKING_PATH_TEMPLATE.replace(
-    "{shiftId}",
+  const bookingPath =
+    (import.meta.env.VITE_NINJA_BOOKING_PATH as string | undefined)?.trim();
+
+  if (!bookingPath) {
+    throw new NinjaApiError(
+      501,
+      "Real Ninja booking route is not configured. NATAN will not guess or fabricate a booking endpoint.",
+    );
+  }
+
+  const path = bookingPath.replace(
+    ":shiftId",
     encodeURIComponent(shiftId),
   );
 

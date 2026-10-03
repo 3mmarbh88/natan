@@ -378,7 +378,9 @@ export const DirectApiBot: React.FC<
     ) {
       return {
         status: error.status,
-        message: error.message,
+        message: error.data == null
+          ? error.message
+          : `${error.message}\nالاستجابة: ${typeof error.data === "string" ? error.data : JSON.stringify(error.data)}`,
       };
     }
 
@@ -559,6 +561,11 @@ export const DirectApiBot: React.FC<
       setConnectionStatus(
         "checking",
       );
+
+      // Protected Ninja endpoints require a legitimate authenticated session.
+      // Do not send a fake Bearer token; show the actual state in the console.
+      // The session is created by the Ninja authentication flow.
+
 
       const started =
         performance.now();
