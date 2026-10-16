@@ -143,7 +143,7 @@ export interface BookingSettings {
      Booking Mode
      ------------------------------------------------------- */
 
-  bookingMode?: 'screen' | 'direct_api';
+  bookingMode?: 'screen';
 
   /* -------------------------------------------------------
      Direct API Bot
