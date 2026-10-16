@@ -282,6 +282,30 @@ public class NatanAutomationPlugin extends Plugin {
         call.resolve();
     }
 
+    @PluginMethod
+    public void openBatteryOptimizationSettings(PluginCall call) {
+        try {
+            Intent intent = new Intent();
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                intent.setAction(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+            } else {
+                intent.setAction(Settings.ACTION_APPLICATION_SETTINGS);
+            }
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            try {
+                Intent fallback = new Intent(Settings.ACTION_SETTINGS);
+                fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(fallback);
+                call.resolve();
+            } catch (Exception err) {
+                call.reject("Unable to open battery settings: " + err.getMessage());
+            }
+        }
+    }
+
     private JSObject mockLocationStatus() {
         JSObject ret = new JSObject();
         SharedPreferences p = prefs();

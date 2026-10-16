@@ -298,6 +298,126 @@ export const SpeedEngineConfig: React.FC<SpeedEngineConfigProps> = ({
           />
         </div>
       </div>
+
+      {/* Phone Stability, Stealth Mode & Lock in Recents Guide */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/40 border border-indigo-500/30 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-white flex items-center gap-2">
+                <span>{isAr ? 'مركز الحماية واستقرار الهاتف (Anti-Ban & Stability Center)' : 'Anti-Ban & Phone Stability Center'}</span>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                  {isAr ? 'موصى به' : 'Recommended'}
+                </span>
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                {isAr ? 'إجراءات أساسية لضمان عمل الرصد في الخلفية لساعات طويلة دون إغلاق وحماية الحساب من الحظر' : 'Essential steps to keep background monitoring alive for hours and prevent account bans'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onUpdateSettings({ speedMode: 'stealth', scanIntervalMs: 250, humanJitterMs: 40 })}
+            className="px-3.5 py-1.5 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/40 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 shrink-0"
+          >
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <span>{isAr ? 'تطبيق وضع التخفي الآمن (Stealth 250ms)' : 'Apply Safe Stealth Mode (250ms)'}</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+          {/* Card 1: Disable Battery Optimization */}
+          <div className="p-3.5 rounded-xl bg-slate-850 bg-slate-900/90 border border-slate-700/80 space-y-2">
+            <div className="flex items-center gap-2 text-amber-400 font-bold">
+              <BatteryCharging className="w-4 h-4" />
+              <span>{isAr ? '1. إلغاء تحسين البطارية' : '1. Disable Battery Saver'}</span>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              {isAr ? (
+                <>
+                  نظام أندرويد يقوم بإنهاء البرامج النشطة في الخلفية لتوفير الطاقة. يجب ضبط NATAN على <strong>"غير مقيّد (Unrestricted)"</strong>.
+                </>
+              ) : (
+                'Android kills background engines to save power. Set NATAN to Unrestricted in battery settings.'
+              )}
+            </p>
+            <div className="text-[10px] text-slate-400 space-y-1 bg-slate-950/60 p-2 rounded-lg border border-slate-800">
+              <p>• <strong>سامسونج:</strong> الضبط ⇦ التطبيقات ⇦ NATAN ⇦ البطارية ⇦ غير مقيّد</p>
+              <p>• <strong>شاومي / ريدمي:</strong> إعدادات التطبيق ⇦ موفر البطارية ⇦ بلا قيود</p>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const { openNatanBatterySettings, isNatanNativeAndroid } = await import('../utils/natanAutomation');
+                  if (isNatanNativeAndroid()) {
+                    await openNatanBatterySettings();
+                  } else {
+                    alert(isAr ? 'على هاتفك الأندرويد: افتح الإعدادات ⇦ التطبيقات ⇦ NATAN ⇦ البطارية ⇦ اختر غير مقيد' : 'On Android: Go to Settings > Apps > NATAN > Battery > Select Unrestricted');
+                  }
+                } catch (e) {
+                  alert(isAr ? 'توجه إلى إعدادات الهاتف ⇦ التطبيقات ⇦ NATAN ⇦ البطارية ⇦ غير مقيّد' : 'Go to Settings > Apps > NATAN > Battery > Unrestricted');
+                }
+              }}
+              className="w-full mt-1 py-1.5 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[11px] font-bold transition-all text-center cursor-pointer"
+            >
+              {isAr ? '⚙️ فتح إعدادات بطارية الهاتف' : '⚙️ Open Android Battery Settings'}
+            </button>
+          </div>
+
+          {/* Card 2: Lock in Recents */}
+          <div className="p-3.5 rounded-xl bg-slate-850 bg-slate-900/90 border border-slate-700/80 space-y-2">
+            <div className="flex items-center gap-2 text-sky-400 font-bold">
+              <Sliders className="w-4 h-4" />
+              <span>{isAr ? '2. قفل التطبيق في الحديثة' : '2. Lock in Recents'}</span>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              {isAr ? (
+                <>
+                  لمنع إغلاق NATAN أو تطبيق نينجا عند امتلاء الذاكرة العشوائية (RAM)، قم بوضع <strong>قفل الحماية</strong> في شاشة التطبيقات المفتوحة.
+                </>
+              ) : (
+                'Prevent Android RAM cleaner from killing NATAN or Ninja while scanning.'
+              )}
+            </p>
+            <div className="text-[10px] text-slate-400 space-y-1 bg-slate-950/60 p-2 rounded-lg border border-slate-800">
+              <p>1. افتح شاشة التطبيقات المفتوحة (Recent Apps).</p>
+              <p>2. اضغط مطولاً على أيقونة NATAN ثم اختر <strong>"قفل هذا التطبيق (Lock App 🔒)"</strong>.</p>
+              <p>3. كرر نفس القفل على تطبيق نينجا كباتن.</p>
+            </div>
+            <div className="text-[10px] text-emerald-400 font-bold flex items-center gap-1 pt-1">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>{isAr ? 'يضمن بقاء البرنامج شغالاً دون انقطاع' : 'Ensures 24/7 background operation'}</span>
+            </div>
+          </div>
+
+          {/* Card 3: Anti-Ban & Stealth Rules */}
+          <div className="p-3.5 rounded-xl bg-slate-850 bg-slate-900/90 border border-slate-700/80 space-y-2">
+            <div className="flex items-center gap-2 text-emerald-400 font-bold">
+              <ShieldCheck className="w-4 h-4" />
+              <span>{isAr ? '3. تفادي الحظر وأمان الحساب' : '3. Anti-Ban & Safety Rules'}</span>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              {isAr ? (
+                <>
+                  تم تصميم المحرك بخاصية <strong>Human Jitter</strong> لتوليد إحداثيات نقر عشوائية طفيفة محاكية لحركة أصابع الإنسان الحقيقية.
+                </>
+              ) : (
+                'Human Jitter randomizes click coordinates by a few pixels so clicks appear organic.'
+              )}
+            </p>
+            <div className="text-[10px] text-slate-400 space-y-1 bg-slate-950/60 p-2 rounded-lg border border-slate-800">
+              <p>• <strong>المراقبة الطويلة:</strong> استخدم وضع <strong>متخفي Stealth (250ms)</strong>.</p>
+              <p>• <strong>لحظات النزول الحرجة:</strong> حوّل إلى <strong>فائق Ultra (50ms)</strong> لمدة 5 دقائق فقط ثم عد للتخفي.</p>
+              <p>• <strong>جلسة رسمية:</strong> لا تقم بمشاركة الحساب أو تسجيل الدخول من أجهزة متعددة في نفس اللحظة.</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

@@ -29,10 +29,18 @@ interface NatanAutomationPlugin {
   stopMockLocation(): Promise<NatanMockLocationStatus>;
   getMockLocationStatus(): Promise<NatanMockLocationStatus>;
   openMockLocationSettings(): Promise<void>;
+  openBatteryOptimizationSettings(): Promise<void>;
   getNinjaScreenSnapshot(): Promise<{ packageName: string; text: string; timestamp: number }>;
 }
 
 export const NatanAutomation = registerPlugin<NatanAutomationPlugin>('NatanAutomation');
+
+export async function openNatanBatterySettings(): Promise<void> {
+  if (!isNatanNativeAndroid()) {
+    throw new Error('Battery settings can only be opened from the Android app.');
+  }
+  return NatanAutomation.openBatteryOptimizationSettings();
+}
 
 export function isNatanNativeAndroid(): boolean {
   return Capacitor.getPlatform() === 'android';
