@@ -28,7 +28,6 @@ import {
 } from './data/saudiCities';
 
 import { soundFX } from './utils/audio';
-import { bookNinjaShift } from './api/ninjaApi';
 import { haptics } from './utils/haptics';
 import { wakeLock } from './utils/wakeLock';
 import { findConflictingShift } from './utils/timeConflict';
@@ -56,9 +55,6 @@ import {
   Fingerprint,
   ScanFace,
 } from 'lucide-react';
-
-// Prevent duplicate direct-API booking requests for the same shift.
-const directApiBookingInFlight = new Set<string>();
 
 /*
  * ============================================================
@@ -1191,58 +1187,6 @@ export default function App() {
       return;
     }
 
-    // Direct API mode: use only a legitimate Ninja session already
-    // stored by the integration. No token, installation UID, HMAC,
-    // or integrity value is fabricated by NATAN.
-    if (settings.bookingMode === 'direct_api') {
-      const shiftKey = String(shift.id);
-      if (directApiBookingInFlight.has(shiftKey)) {
-        return;
-      }
-      directApiBookingInFlight.add(shiftKey);
-
-      const requestStartedAt = performance.now();
-      try {
-        addLog(
-          'info',
-          isAr
-            ? `⚡ محاولة الحجز المباشر للشفت ${shift.id}...`
-            : `⚡ Direct API booking attempt for shift ${shift.id}...`,
-        );
-
-        const result = await bookNinjaShift(String(shift.id));
-        const latency = Math.round(performance.now() - requestStartedAt);
-
-        addLog(
-          'success',
-          isAr
-            ? `✅ تم قبول طلب الحجز المباشر للشفت ${shift.id}`
-            : `✅ Direct API booking accepted for shift ${shift.id}`,
-          typeof result === 'string' ? result : JSON.stringify(result),
-          latency,
-        );
-
-        haptics.vibrateAlert();
-        setCapturedShifts((prev) => {
-          if (prev.some((item) => item.id === shift.id)) return prev;
-          return [...prev, { ...shift, status: 'booked', bookedAt: Date.now(), responseTimeMs: latency }];
-        });
-        return;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        addLog(
-          'error',
-          isAr
-            ? `❌ فشل الحجز المباشر للشفت ${shift.id}: ${message}`
-            : `❌ Direct API booking failed for shift ${shift.id}: ${message}`,
-        );
-        // Do not fall back automatically to UI booking here. A failed
-        // direct request must not unexpectedly trigger a second booking path.
-        return;
-      } finally {
-        directApiBookingInFlight.delete(shiftKey);
-      }
-    }
 
     const requestStartedAt = performance.now();
 
