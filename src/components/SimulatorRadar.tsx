@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Radio, Zap, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle, Clock, MapPin, Trash2, Flame, Sparkles, Lock, X, Ban, Server } from 'lucide-react';
+import { Radio, Zap, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle, Clock, MapPin, Trash2, Flame, Sparkles, Lock, X, Ban } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Shift, BookingSettings, PerformanceStats } from '../types';
 import { soundFX } from '../utils/audio';
@@ -17,7 +17,6 @@ interface SimulatorRadarProps {
   onDeleteShift?: (shiftId: string) => void;
   isAutoSimulating: boolean;
   onToggleAutoSimulating: () => void;
-  onNavigateToApiBot?: () => void;
 }
 
 export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
@@ -30,7 +29,6 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
   onDeleteShift,
   isAutoSimulating,
   onToggleAutoSimulating,
-  onNavigateToApiBot,
 }) => {
   const { t, isAr } = useLanguage();
   const [modalShift, setModalShift] = useState<Shift | null>(null);
@@ -99,25 +97,8 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
           </div>
         </div>
 
-        {/* Production status and quick API Bot button */}
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-[11px] sm:text-xs font-bold">
-            <Server className="w-3.5 h-3.5" />
-            <span>{isAr ? 'مصدر حقيقي: Ninja API' : 'Real source: Ninja API'}</span>
-          </div>
-
-          {onNavigateToApiBot && (
-            <button
-              type="button"
-              onClick={onNavigateToApiBot}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-[11px] sm:text-xs font-black shadow-md shadow-purple-500/25 active:scale-95 cursor-pointer"
-            >
-              <Server className="w-3.5 h-3.5 text-purple-200" />
-              <span>⚡ API Bot</span>
-            </button>
-          )}
-        </div>
-      </div>
+        {/* Header actions removed: direct Ninja API is not available */}
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end"></div>
 
       {/* Auto Booking Status Banner */}
       <div className={`p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
