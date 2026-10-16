@@ -99,6 +99,8 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
 
         {/* Header actions removed: direct Ninja API is not available */}
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end"></div>
+        </div>
+      </div>
 
       {/* Auto Booking Status Banner */}
       <div className={`p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
