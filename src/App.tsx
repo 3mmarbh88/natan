@@ -8,7 +8,6 @@ import { LocationMapPicker } from './components/LocationMapPicker';
 import { LogViewer } from './components/LogViewer';
 import { CodeExportModal } from './components/CodeExportModal';
 import { AiAdvisor } from './components/AiAdvisor';
-import { DirectApiBot } from './components/DirectApiBot';
 import { WhatsAppSupport } from './components/WhatsAppSupport';
 import AuthModal from './components/AuthModal';
 import { SimulatorRadar } from './components/SimulatorRadar';
@@ -302,7 +301,6 @@ export default function App() {
       | 'location'
       | 'engine'
       | 'code'
-      | 'api_bot'
     >('radar');
 
   const [isCodeModalOpen, setIsCodeModalOpen] =
@@ -2341,7 +2339,7 @@ export default function App() {
           <div
             className="
               grid
-              grid-cols-5
+              grid-cols-4
               gap-1.5
               sm:flex
               sm:items-center
@@ -2417,32 +2415,8 @@ export default function App() {
               <Zap className="w-4 h-4 text-amber-400 shrink-0" />
               <span className="hidden sm:inline truncate">{t.tabEngine} ({settings.scanIntervalMs}ms)</span>
               <span className="sm:hidden leading-tight font-black">{isAr ? 'السرعة' : 'Speed'}</span>
-            </button>
-
-            {/* 5. API Bot */}
-            <button
-              type="button"
-              onClick={() => setActiveView('api_bot')}
-              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2 sm:py-2.5 rounded-xl min-h-[46px] text-[10px] sm:text-xs font-black transition-all cursor-pointer relative active:scale-95 ${
-                activeView === 'api_bot'
-                  ? 'bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/30 border border-purple-400/50'
-                  : 'bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800/90 border border-purple-500/30 ring-1 ring-purple-500/20'
-              }`}
-            >
-              <div className="relative shrink-0">
-                <Server className="w-4 h-4 text-purple-400" />
-                <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-              </div>
-              <span className="hidden sm:inline truncate">{t.tabApiBot}</span>
-              <span className="sm:hidden leading-tight font-black text-purple-200">API Bot</span>
-              <span className="hidden sm:inline-block text-[10px] bg-purple-500/30 text-purple-200 px-1.5 py-0.2 rounded-full border border-purple-400/40 font-mono font-bold">
-                {t.directApiBadge}
-              </span>
-            </button>
-          </div>
+            </button> 
+</div>
 
           {/* Engine status */}
 
@@ -2652,7 +2626,6 @@ export default function App() {
                 }
                 isAutoSimulating={false}
                 onToggleAutoSimulating={() => {}}
-                onNavigateToApiBot={() => setActiveView('api_bot')}
               />
             </div>
 
@@ -3377,35 +3350,6 @@ export default function App() {
             </div>
           </div>
         )}
-
-        {/* ====================================================
-            API BOT
-            ==================================================== */}
-
-        {activeView ===
-          'api_bot' && (
-          <DirectApiBot
-            settings={settings}
-            onUpdateSettings={
-              updateSettings
-            }
-            onBookShift={
-              bookShiftManually
-            }
-            onTriggerInstantDrop={
-              triggerInstantDrop
-            }
-            onAddLog={
-              addLog
-            }
-            onShiftsUpdated={
-              handleNinjaShiftsUpdated
-            }
-            onNavigateToLocation={() =>
-              setActiveView('location')
-            }
-          />
-        )}
       </main>
 
       {/* ======================================================
@@ -3509,32 +3453,8 @@ export default function App() {
             <Zap className={`w-5 h-5 ${activeView === 'engine' ? 'text-amber-400 stroke-[2.5]' : ''}`} />
             <span className="text-[10px] leading-none truncate max-w-[62px]">{isAr ? 'السرعة' : 'Engine'}</span>
             {activeView === 'engine' && <span className="w-1.5 h-1 rounded-full bg-amber-400 -mt-0.5" />}
-          </button>
-
-          {/* 5. API Bot */}
-          <button
-            type="button"
-            onClick={() => {
-              haptics.vibrateTick();
-              setActiveView('api_bot');
-            }}
-            className={`flex flex-col items-center justify-center gap-1 w-full h-full relative cursor-pointer active:scale-95 transition-transform ${
-              activeView === 'api_bot'
-                ? 'text-purple-300 font-black'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <div className="relative">
-              <Server className={`w-5 h-5 ${activeView === 'api_bot' ? 'text-purple-400 stroke-[2.5]' : 'text-purple-400/70'}`} />
-              <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-            </div>
-            <span className="text-[10px] leading-none font-black text-purple-200 whitespace-nowrap">API Bot ⚡</span>
-            {activeView === 'api_bot' && <span className="w-1.5 h-1 rounded-full bg-purple-400 -mt-0.5" />}
-          </button>
-        </div>
+          </button> 
+</div>
       </nav>
 
       {/* ======================================================
