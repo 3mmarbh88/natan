@@ -30,22 +30,20 @@ public class NatanAccessibilityService extends AccessibilityService {
     private static final String TAG = "NATAN_AUTOMATION";
     private static final String NINJA_PACKAGE = NatanAutomationPlugin.TARGET_PACKAGE;
     private static final long STEP_MS = 320L;
-    private static final long TIMEOUT_MS = 45_000L;
+    private static final long REFRESH_INTERVAL_MS = 20_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private long startedAt = 0L;
     private long lastActionAt = 0L;
     private String lastActionKey = "";
     private int scrolls = 0;
+    private long lastRefreshAt = 0L;
+    private String lastReportedStatus = "";
 
     private final Runnable watchdog = new Runnable() {
         @Override public void run() {
             if (!isRunning()) return;
-            if (System.currentTimeMillis() - startedAt > TIMEOUT_MS) {
-                setStatus("timeout", "Target shift was not found or the booking flow did not finish");
-                stopAutomation();
-                return;
-            }
+            if (startedAt == 0L) startedAt = System.currentTimeMillis();
             inspectAndAct();
             handler.postDelayed(this, STEP_MS);
         }
@@ -55,18 +53,13 @@ public class NatanAccessibilityService extends AccessibilityService {
     protected void onServiceConnected() {
         super.onServiceConnected();
         Log.d(TAG, "NATAN Accessibility Service connected");
-        handler.postDelayed(() -> {
-            if (isRunning()) {
-                startedAt = System.currentTimeMillis();
-                handler.removeCallbacks(watchdog);
-                handler.post(watchdog);
-            }
-        }, 500L);
+        ensureWatchdogStarted();
     }
 
     @Override
     public void onAccessibilityEvent(android.view.accessibility.AccessibilityEvent event) {
         if (event == null || !isRunning()) return;
+        ensureWatchdogStarted();
         CharSequence pkg = event.getPackageName();
         if (pkg != null && !NINJA_PACKAGE.contentEquals(pkg)) return;
         inspectAndAct();
@@ -81,6 +74,20 @@ public class NatanAccessibilityService extends AccessibilityService {
     public void onDestroy() {
         handler.removeCallbacks(watchdog);
         super.onDestroy();
+    }
+
+    private void ensureWatchdogStarted() {
+        if (!isRunning()) return;
+        handler.removeCallbacks(watchdog);
+        if (startedAt == 0L) startedAt = System.currentTimeMillis();
+        handler.post(watchdog);
+    }
+
+    private void reportStatusIfChanged(String status, String detail) {
+        if (!status.equals(lastReportedStatus)) {
+            setStatus(status, detail);
+            lastReportedStatus = status;
+        }
     }
 
     private boolean isRunning() {
@@ -109,10 +116,18 @@ public class NatanAccessibilityService extends AccessibilityService {
 
     private void inspectAndAct() {
         if (!isRunning()) return;
+        ensureWatchdogStarted();
         AccessibilityNodeInfo root = getRootInActiveWindow();
-        if (root == null) return;
+        if (root == null) {
+            reportStatusIfChanged("waiting_ninja", "Waiting for an active Ninja screen; Android does not expose a background screen when another window is active");
+            return;
+        }
         CharSequence pkg = root.getPackageName();
-        if (pkg != null && !NINJA_PACKAGE.contentEquals(pkg)) return;
+        if (pkg == null || !NINJA_PACKAGE.contentEquals(pkg)) {
+            reportStatusIfChanged("waiting_ninja", "Waiting for Ninja to be the active screen; Accessibility can only interact with the visible/active Ninja window");
+            return;
+        }
+        lastReportedStatus = "";
 
         String allText = collectText(root);
         lastScreenSnapshot = allText;
@@ -161,22 +176,28 @@ public class NatanAccessibilityService extends AccessibilityService {
         }
 
         AccessibilityNodeInfo refresh = findClickableByLabels(root, Arrays.asList("refresh", "تحديث", "اسحب للتحديث"));
-        if (targetCard == null && scrolls < 8) {
-            if (scrolls == 0 && refresh != null && performClick(refresh, "refresh")) {
-                scrolls++;
-                setStatus("refreshing", "Refreshing Ninja shifts using the visible refresh control");
-                return;
+        if (targetCard == null) {
+            long now = System.currentTimeMillis();
+            if (scrolls >= 8 && now - lastRefreshAt >= REFRESH_INTERVAL_MS) {
+                scrolls = 0;
             }
-            // First attempt: perform a real downward swipe to trigger pull-to-refresh.
-            // Later attempts scroll the list to inspect additional shifts.
-            if (scrolls == 0 && performPullToRefresh(root)) {
-                scrolls++;
-                setStatus("refreshing", "Pull-to-refresh gesture sent; waiting for Ninja to load new shifts");
-                return;
+            if (scrolls == 0 && now - lastRefreshAt >= REFRESH_INTERVAL_MS) {
+                boolean refreshed = refresh != null && performClick(refresh, "refresh");
+                if (!refreshed) refreshed = performPullToRefresh(root);
+                if (refreshed) {
+                    lastRefreshAt = now;
+                    scrolls = 1;
+                    setStatus("refreshing", "Refresh requested; waiting for Ninja to load the latest shifts");
+                    return;
+                }
+                // Avoid firing repeated gestures when the current page does not support refresh.
+                lastRefreshAt = now;
             }
-            if (scrolls > 0 && scrollDown(root)) {
+            if (scrollDown(root)) {
                 scrolls++;
-                setStatus("searching", "Scanning Ninja shifts page for additional shifts");
+                setStatus("searching", "Scanning visible Ninja shifts; will refresh and retry periodically");
+            } else if (scrolls == 0) {
+                reportStatusIfChanged("waiting_shifts", "Ninja is active, but no scrollable shift list or refresh control is currently available");
             }
         }
     }
@@ -516,6 +537,7 @@ public class NatanAccessibilityService extends AccessibilityService {
                 .putString(NatanAutomationPlugin.DETAIL, detail)
                 .putLong(NatanAutomationPlugin.LAST_UPDATE, System.currentTimeMillis())
                 .apply();
+        lastReportedStatus = status;
     }
 
     private void stopAutomation() { stopAutomation(true); }
