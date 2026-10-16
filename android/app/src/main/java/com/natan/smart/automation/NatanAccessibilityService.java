@@ -39,6 +39,7 @@ public class NatanAccessibilityService extends AccessibilityService {
     private int scrolls = 0;
     private long lastRefreshAt = 0L;
     private String lastReportedStatus = "";
+    private boolean watchdogStarted = false;
 
     private final Runnable watchdog = new Runnable() {
         @Override public void run() {
@@ -73,13 +74,14 @@ public class NatanAccessibilityService extends AccessibilityService {
     @Override
     public void onDestroy() {
         handler.removeCallbacks(watchdog);
+        watchdogStarted = false;
         super.onDestroy();
     }
 
     private void ensureWatchdogStarted() {
-        if (!isRunning()) return;
-        handler.removeCallbacks(watchdog);
+        if (!isRunning() || watchdogStarted) return;
         if (startedAt == 0L) startedAt = System.currentTimeMillis();
+        watchdogStarted = true;
         handler.post(watchdog);
     }
 
