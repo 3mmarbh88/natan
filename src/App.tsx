@@ -45,7 +45,6 @@ import {
   Radio,
   SlidersHorizontal,
   Flame,
-  Server,
   ShieldCheck,
   MessageCircle,
   Lock,
