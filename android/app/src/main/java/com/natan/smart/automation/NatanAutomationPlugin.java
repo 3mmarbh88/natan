@@ -25,7 +25,7 @@ public class NatanAutomationPlugin extends Plugin {
     public static final String STATUS = "status";
     public static final String DETAIL = "detail";
     public static final String LAST_UPDATE = "last_update";
-    public static final String TARGET_PACKAGE = "delivery.samurai.android";
+    public static final String TARGET_PACKAGE = "com.mehedydev.nova";
 
     private SharedPreferences prefs() {
         return getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
