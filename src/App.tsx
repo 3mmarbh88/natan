@@ -1453,7 +1453,6 @@ export default function App() {
    */
   useEffect(() => {
     if (!isLicensed || !settings.monitoring || !settings.autoBooking) return;
-    if (settings.bookingMode === 'direct_api') return;
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
