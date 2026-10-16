@@ -213,6 +213,12 @@ public class NatanAccessibilityService extends AccessibilityService {
         return best;
     }
 
+    /**
+     * On-device "AI" ranker: interprets the accessible UI text with normalized
+     * Arabic/English aliases, hard exclusions, and weighted preference scoring.
+     * It deliberately fails closed when the screen does not provide enough
+     * evidence; no Ninja API or external AI key is required.
+     */
     private AccessibilityNodeInfo findMatchingShiftCardByCriteria(AccessibilityNodeInfo root, JSONObject c) {
         List<AccessibilityNodeInfo> candidates = new ArrayList<>();
         collectNodes(root, candidates);
@@ -228,38 +234,83 @@ public class NatanAccessibilityService extends AccessibilityService {
 
         AccessibilityNodeInfo best = null;
         int bestScore = 0;
+        int secondScore = 0;
+        String bestFingerprint = "";
         for (AccessibilityNodeInfo node : candidates) {
             String text = normalize(collectText(node));
             if (text.length() < 10 || !hasBookLabel(text)) continue;
-            if (containsAny(text, Arrays.asList("unavailable", "not available", "fully booked", "already booked", "expired", "completed", "cancelled", "canceled", "no longer available", "غير متاح", "غير متاحة", "مكتمل", "منتهي", "محجوز", "انتهت", "ملغي", "ملغى", "اكتمل الحجز"))) continue;
+            if (containsAny(text, Arrays.asList(
+                    "unavailable", "not available", "fully booked", "already booked", "expired",
+                    "completed", "cancelled", "canceled", "no longer available", "booking closed",
+                    "غير متاح", "غير متاحة", "غير متوفر", "مكتمل", "منتهي", "محجوز",
+                    "انتهت", "ملغي", "ملغى", "اكتمل الحجز", "لا يوجد شفت", "لا توجد مناوبات"))) continue;
 
             int score = 0;
-            if (!city.isEmpty() && containsToken(text, city)) score += 3;
-            if (!districts.isEmpty() && containsToken(text, districts)) score += 5;
-            if (!branchNumbers.isEmpty() && containsToken(text, branchNumbers)) score += 5;
+            int matchedSignals = 0;
+            if (!city.isEmpty()) {
+                if (containsToken(text, city)) { score += 4; matchedSignals++; }
+                else continue;
+            }
+            if (!districts.isEmpty()) {
+                if (containsToken(text, districts)) { score += 6; matchedSignals++; }
+                else continue;
+            }
+            if (!branchNumbers.isEmpty()) {
+                if (containsToken(text, branchNumbers)) { score += 6; matchedSignals++; }
+                else continue;
+            }
 
             int[] pair = extractTimePair(text);
             if (pair != null) {
                 double hours = durationHours(pair[0], pair[1]);
                 if (hours < minHours || hours > maxHours) continue;
-                if (withinWindow(pair[0], startWindow, endWindow)) score += 3;
-                else continue;
+                if (!withinWindow(pair[0], startWindow, endWindow)) continue;
+                score += 4;
+                matchedSignals++;
                 if (withinWindow(pair[1], startWindow, endWindow)) score += 1;
             } else if (minHours > 0 || maxHours < 99 || !"00:00".equals(startWindow) || !"23:59".equals(endWindow)) {
                 continue;
             }
 
-            if (!days.isEmpty() && containsToken(text, days)) score += 3;
-            if (onlyPeak) {
-                if (containsAny(text, Arrays.asList("peak", "ذروة", "مميز", "prime"))) score += 2;
+            if (!days.isEmpty()) {
+                if (containsToken(text, days)) { score += 3; matchedSignals++; }
                 else continue;
             }
-            score += 1; // book button
-            if (score >= 6 && score > bestScore) {
+            if (onlyPeak) {
+                if (containsAny(text, Arrays.asList("peak", "ذروة", "مميز", "prime", "حوافز", "بونص", "bonus"))) {
+                    score += 3;
+                    matchedSignals++;
+                } else continue;
+            } else if (containsAny(text, Arrays.asList("peak", "ذروة", "مميز", "prime", "حوافز", "بونص", "bonus"))) {
+                score += 1; // prefer bonus shifts only as a tie-breaker
+            }
+
+            score += 2; // explicit booking action is present
+            // Reject generic page/container nodes that combine multiple cards.
+            String fingerprint = text.length() > 180 ? text.substring(0, 180) : text;
+            if (fingerprint.equals(bestFingerprint)) continue;
+            if (score > bestScore) {
+                secondScore = bestScore;
                 best = node;
                 bestScore = score;
+                bestFingerprint = fingerprint;
+            } else if (score > secondScore) {
+                secondScore = score;
             }
         }
+
+        // If configured constraints provide too little evidence, or the top
+        // two candidates are tied, do not guess and risk booking the wrong shift.
+        int requiredSignals = (!city.isEmpty() ? 1 : 0) + (!districts.isEmpty() ? 1 : 0)
+                + (!branchNumbers.isEmpty() ? 1 : 0) + (!days.isEmpty() ? 1 : 0)
+                + ((minHours > 0 || maxHours < 99 || !"00:00".equals(startWindow) || !"23:59".equals(endWindow)) ? 1 : 0)
+                + (onlyPeak ? 1 : 0);
+        int minimumScore = requiredSignals >= 2 ? 8 : 5;
+        if (bestScore < minimumScore || (secondScore > 0 && bestScore == secondScore)) {
+            setStatus("searching", "AI matcher found no unique high-confidence shift; continuing to scan");
+            return null;
+        }
+        setStatus("matching", "On-device matcher selected a shift matching configured criteria (score " + bestScore + ")");
         return best;
     }
 
