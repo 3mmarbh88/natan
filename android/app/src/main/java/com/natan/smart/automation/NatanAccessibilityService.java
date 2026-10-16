@@ -116,13 +116,13 @@ public class NatanAccessibilityService extends AccessibilityService {
         lastScreenSnapshot = allText;
         String lower = normalize(allText);
 
-        if (containsAny(lower, Arrays.asList("shift booked successfully", "shift booked", "تم حجز المناوبة بنجاح", "تم حجز المناوبة", "اكتمل الحجز"))) {
+        if (containsAny(lower, Arrays.asList("shift booked successfully", "booking confirmed", "successfully booked", "تم حجز المناوبة بنجاح", "تم تأكيد الحجز", "اكتمل الحجز بنجاح"))) {
             setStatus("success", "Ninja confirmed the shift booking");
             stopAutomation(false);
             return;
         }
 
-        if (containsAny(lower, Arrays.asList("booking failed", "unable to book", "could not book", "تعذر الحجز", "فشل الحجز", "غير متاح", "already booked"))) {
+        if (containsAny(lower, Arrays.asList("booking failed", "unable to book", "could not book", "failed to book", "تعذر الحجز", "فشل الحجز", "غير متاح", "already booked", "booking unsuccessful"))) {
             setStatus("failed", allText.length() > 300 ? allText.substring(0, 300) : allText);
             stopAutomation(false);
             return;
