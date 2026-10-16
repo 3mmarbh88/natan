@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Rect;
+import android.graphics.Path;
+import android.accessibilityservice.GestureDescription;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
@@ -161,12 +163,20 @@ public class NatanAccessibilityService extends AccessibilityService {
         AccessibilityNodeInfo refresh = findClickableByLabels(root, Arrays.asList("refresh", "تحديث", "اسحب للتحديث"));
         if (targetCard == null && scrolls < 8) {
             if (scrolls == 0 && refresh != null && performClick(refresh, "refresh")) {
-                setStatus("refreshing", "Refreshing Ninja shifts");
+                scrolls++;
+                setStatus("refreshing", "Refreshing Ninja shifts using the visible refresh control");
                 return;
             }
-            if (scrollDown(root)) {
+            // First attempt: perform a real downward swipe to trigger pull-to-refresh.
+            // Later attempts scroll the list to inspect additional shifts.
+            if (scrolls == 0 && performPullToRefresh(root)) {
                 scrolls++;
-                setStatus("searching", "Scanning Ninja shifts page");
+                setStatus("refreshing", "Pull-to-refresh gesture sent; waiting for Ninja to load new shifts");
+                return;
+            }
+            if (scrolls > 0 && scrollDown(root)) {
+                scrolls++;
+                setStatus("searching", "Scanning Ninja shifts page for additional shifts");
             }
         }
     }
@@ -401,6 +411,34 @@ public class NatanAccessibilityService extends AccessibilityService {
             }
         }
         return clicked;
+    }
+
+    /**
+     * Sends a downward swipe over the active Ninja screen to trigger the
+     * app's native pull-to-refresh gesture. This is distinct from
+     * ACTION_SCROLL_FORWARD, which only moves through a list.
+     */
+    private boolean performPullToRefresh(AccessibilityNodeInfo root) {
+        if (root == null || android.os.Build.VERSION.SDK_INT < 24) return false;
+        Rect bounds = new Rect();
+        root.getBoundsInScreen(bounds);
+        if (bounds.isEmpty() || bounds.width() < 100 || bounds.height() < 250) return false;
+
+        int x = bounds.centerX();
+        int startY = bounds.top + Math.max(60, (int) (bounds.height() * 0.08));
+        int endY = Math.min(bounds.bottom - 40,
+                startY + Math.max(220, (int) (bounds.height() * 0.28)));
+        if (endY <= startY + 100) return false;
+
+        Path path = new Path();
+        path.moveTo(x, startY);
+        path.lineTo(x, endY);
+        GestureDescription.StrokeDescription stroke =
+                new GestureDescription.StrokeDescription(path, 0, 450);
+        GestureDescription gesture = new GestureDescription.Builder()
+                .addStroke(stroke)
+                .build();
+        return dispatchGesture(gesture, null, null);
     }
 
     private boolean scrollDown(AccessibilityNodeInfo root) {
