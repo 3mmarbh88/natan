@@ -49,6 +49,7 @@ public class NatanAutomationPlugin extends Plugin {
 
         if (!isAccessibilityEnabled()) {
             prefs().edit()
+                    .putBoolean(RUNNING, false)
                     .putString(STATUS, "accessibility_required")
                     .putString(DETAIL, "Enable NATAN Accessibility Service")
                     .putLong(LAST_UPDATE, System.currentTimeMillis())
@@ -90,6 +91,7 @@ public class NatanAutomationPlugin extends Plugin {
 
         if (!isAccessibilityEnabled()) {
             prefs().edit()
+                    .putBoolean(RUNNING, false)
                     .putString(STATUS, "accessibility_required")
                     .putString(DETAIL, "Enable NATAN Accessibility Service")
                     .putLong(LAST_UPDATE, System.currentTimeMillis())
@@ -123,9 +125,9 @@ public class NatanAutomationPlugin extends Plugin {
         }
         String snapshot = NatanAccessibilityService.getLastScreenSnapshot();
         JSObject ret = new JSObject();
-        ret.put("packageName", TARGET_PACKAGE);
+        ret.put("packageName", NatanAccessibilityService.getLastScreenPackage());
         ret.put("text", snapshot == null ? "" : snapshot);
-        ret.put("timestamp", System.currentTimeMillis());
+        ret.put("timestamp", NatanAccessibilityService.getLastSnapshotTimestamp());
         call.resolve(ret);
     }
 
