@@ -25,8 +25,12 @@ import java.util.Set;
 
 public class NatanAccessibilityService extends AccessibilityService {
     private static volatile String lastScreenSnapshot = "";
+    private static volatile String lastScreenPackage = "";
+    private static volatile long lastSnapshotTimestamp = 0L;
 
     public static String getLastScreenSnapshot() { return lastScreenSnapshot; }
+    public static String getLastScreenPackage() { return lastScreenPackage; }
+    public static long getLastSnapshotTimestamp() { return lastSnapshotTimestamp; }
     private static final String TAG = "NATAN_AUTOMATION";
     private static final String NINJA_PACKAGE = NatanAutomationPlugin.TARGET_PACKAGE;
     private static final long STEP_MS = 320L;
@@ -121,12 +125,18 @@ public class NatanAccessibilityService extends AccessibilityService {
         ensureWatchdogStarted();
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null) {
-            reportStatusIfChanged("waiting_ninja", "Waiting for an active Ninja screen; Android does not expose a background screen when another window is active");
+            lastScreenPackage = "";
+            lastScreenSnapshot = "";
+            lastSnapshotTimestamp = System.currentTimeMillis();
+            reportStatusIfChanged("waiting_ninja", "No active window is available to Accessibility. Unlock the phone and bring Ninja to the foreground.");
             return;
         }
         CharSequence pkg = root.getPackageName();
+        lastScreenPackage = pkg == null ? "" : pkg.toString();
+        lastSnapshotTimestamp = System.currentTimeMillis();
         if (pkg == null || !NINJA_PACKAGE.contentEquals(pkg)) {
-            reportStatusIfChanged("waiting_ninja", "Waiting for Ninja to be the active screen; Accessibility can only interact with the visible/active Ninja window");
+            lastScreenSnapshot = "";
+            reportStatusIfChanged("waiting_ninja", "Ninja is not the active screen (current package: " + lastScreenPackage + "). Open Ninja and keep its shifts screen visible.");
             return;
         }
         lastReportedStatus = "";
