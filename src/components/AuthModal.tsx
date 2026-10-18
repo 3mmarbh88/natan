@@ -1264,7 +1264,7 @@ export default function AuthModal({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm sm:text-base font-black text-white shadow-lg shadow-blue-600/25 transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer min-h-[48px] active:scale-95"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-4 py-3.5 text-sm sm:text-base font-black text-white shadow-lg shadow-blue-600/30 transition-all disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer min-h-[50px] active:scale-[0.98]"
                 >
                   {loading ? (
                     <RefreshCw
@@ -1279,6 +1279,57 @@ export default function AuthModal({
                     ? (isAr ? 'جارٍ تسجيل الدخول...' : 'Signing in...')
                     : (isAr ? 'تسجيل الدخول' : 'Sign In')}
                 </button>
+
+                {/* Professional Actions Bar directly underneath Login Button */}
+                <div className="pt-2 space-y-2">
+                  <div className="flex items-center justify-between gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800">
+                    {/* نسيت كلمة السر */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptics.vibrateTick();
+                        goToTab('forgot');
+                      }}
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-blue-300 hover:bg-slate-800/60 transition-all cursor-pointer min-h-[40px] active:scale-95"
+                    >
+                      <KeyRound className="w-3.5 h-3.5 text-slate-500" />
+                      <span>{isAr ? 'نسيت كلمة السر؟' : 'Forgot Password?'}</span>
+                    </button>
+
+                    <div className="h-4 w-px bg-slate-800" />
+
+                    {/* ليس لدي حساب؟ سجل الآن */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptics.vibrateTick();
+                        goToTab('register');
+                      }}
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/30 hover:border-blue-500/50 transition-all cursor-pointer min-h-[40px] active:scale-95"
+                    >
+                      <span className="text-slate-400 text-[11px] hidden sm:inline">
+                        {isAr ? 'ليس لدي حساب؟' : "No account?"}
+                      </span>
+                      <span className="text-blue-400 hover:text-blue-300 font-black flex items-center gap-1">
+                        <UserPlus className="w-3.5 h-3.5" />
+                        {isAr ? 'سجل الآن' : 'Register Now'}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* كود التفعيل المباشر */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptics.vibrateTick();
+                      goToTab('activate');
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-950/30 via-slate-900 to-emerald-950/30 hover:from-emerald-900/40 hover:to-slate-800 border border-emerald-500/30 hover:border-emerald-500/50 text-emerald-300 hover:text-emerald-200 text-xs font-bold transition-all cursor-pointer min-h-[38px] active:scale-95 shadow-sm"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>{isAr ? 'لديك كود تفعيل؟ اضغط هنا لتفعيل الحساب' : 'Have an activation code? Click to activate'}</span>
+                  </button>
+                </div>
 
                 {/* Biometric Quick Login Section */}
                 <div className="pt-2">
@@ -1329,28 +1380,6 @@ export default function AuthModal({
                     />
                     <span>{isAr ? 'تفعيل الدخول التلقائي بالبصمة على هذا الجهاز' : 'Enable auto biometric login on this device'}</span>
                   </label>
-                </div>
-
-                <div className="flex items-center justify-between pt-1 text-xs">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      goToTab('forgot')
-                    }
-                    className="text-slate-400 transition hover:text-blue-400 cursor-pointer min-h-[38px] flex items-center"
-                  >
-                    {isAr ? 'نسيت كلمة المرور؟' : 'Forgot Password?'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      goToTab('activate')
-                    }
-                    className="text-slate-400 transition hover:text-emerald-400 cursor-pointer min-h-[38px] flex items-center"
-                  >
-                    {isAr ? 'لدي رمز تفعيل' : 'I have an activation code'}
-                  </button>
                 </div>
               </form>
             </>
@@ -1494,10 +1523,38 @@ export default function AuthModal({
                     : (isAr ? 'إنشاء الحساب' : 'Create Account')}
                 </button>
 
+                <div className="pt-2 space-y-2">
+                  <div className="flex items-center justify-between gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        haptics.vibrateTick();
+                        goToTab('login');
+                      }}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800 border border-slate-700/60 transition-all cursor-pointer min-h-[40px] active:scale-95"
+                    >
+                      <LogIn className="w-3.5 h-3.5 text-blue-400" />
+                      <span>{isAr ? 'لديك حساب بالفعل؟ تسجيل الدخول' : 'Already have an account? Sign In'}</span>
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptics.vibrateTick();
+                      goToTab('activate');
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-950/30 via-slate-900 to-emerald-950/30 hover:from-emerald-900/40 hover:to-slate-800 border border-emerald-500/30 hover:border-emerald-500/50 text-emerald-300 hover:text-emerald-200 text-xs font-bold transition-all cursor-pointer min-h-[38px] active:scale-95 shadow-sm"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>{isAr ? 'لديك كود تفعيل؟ اضغط هنا لتفعيل الحساب' : 'Have an activation code? Click to activate'}</span>
+                  </button>
+                </div>
+
                 <p className="text-center text-xs leading-5 text-slate-500">
                   {isAr
-                    ? 'يمكنك إنشاء الحساب بدون رمز تفعيل، ويطلب فقط عند الحاجة إلى الميزات المحمية.'
-                    : 'You can create an account without an activation code.'}
+                    ? 'يمكنك إنشاء الحساب، ويتطلب إدخال كود التفعيل لتشغيل ميزات الحجز والمراقبة.'
+                    : 'You can create an account. Activation code is required to run booking & monitoring.'}
                 </p>
               </form>
             </>
@@ -1578,25 +1635,31 @@ export default function AuthModal({
                     : (isAr ? 'تفعيل الحساب' : 'Activate Account')}
                 </button>
 
-                <div className="flex items-center justify-between pt-1 text-xs">
+                <div className="pt-2 flex items-center justify-between gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800">
                   <button
                     type="button"
-                    onClick={() =>
-                      goToTab('login')
-                    }
-                    className="text-slate-400 transition hover:text-blue-400 cursor-pointer min-h-[38px] flex items-center"
+                    onClick={() => {
+                      haptics.vibrateTick();
+                      goToTab('login');
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-all cursor-pointer min-h-[40px] active:scale-95"
                   >
-                    {isAr ? 'العودة لتسجيل الدخول' : 'Back to Sign In'}
+                    <LogIn className="w-3.5 h-3.5 text-blue-400" />
+                    <span>{isAr ? 'العودة لتسجيل الدخول' : 'Back to Sign In'}</span>
                   </button>
+
+                  <div className="h-4 w-px bg-slate-800" />
 
                   <button
                     type="button"
-                    onClick={() =>
-                      goToTab('register')
-                    }
-                    className="text-slate-400 transition hover:text-blue-400 cursor-pointer min-h-[38px] flex items-center"
+                    onClick={() => {
+                      haptics.vibrateTick();
+                      goToTab('register');
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/30 transition-all cursor-pointer min-h-[40px] active:scale-95"
                   >
-                    {isAr ? 'إنشاء حساب' : 'Create Account'}
+                    <UserPlus className="w-3.5 h-3.5 text-blue-400" />
+                    <span>{isAr ? 'إنشاء حساب جديد' : 'Create Account'}</span>
                   </button>
                 </div>
               </form>
@@ -1644,7 +1707,7 @@ export default function AuthModal({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-sm sm:text-base font-black text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer min-h-[48px] active:scale-95 shadow-md shadow-blue-600/25"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 px-4 py-3.5 text-sm sm:text-base font-black text-white transition-all disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer min-h-[48px] active:scale-95 shadow-md shadow-blue-600/25"
                 >
                   {loading ? (
                     <RefreshCw
@@ -1660,15 +1723,33 @@ export default function AuthModal({
                     : (isAr ? 'إرسال طلب الاستعادة' : 'Send Reset Link')}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    goToTab('login')
-                  }
-                  className="w-full text-center text-xs text-slate-400 transition hover:text-blue-400 cursor-pointer min-h-[38px] flex items-center justify-center"
-                >
-                  {isAr ? 'العودة لتسجيل الدخول' : 'Back to Sign In'}
-                </button>
+                <div className="pt-2 flex items-center justify-between gap-2 p-1.5 rounded-2xl bg-slate-900/90 border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptics.vibrateTick();
+                      goToTab('login');
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-all cursor-pointer min-h-[40px] active:scale-95"
+                  >
+                    <LogIn className="w-3.5 h-3.5 text-blue-400" />
+                    <span>{isAr ? 'العودة لتسجيل الدخول' : 'Back to Sign In'}</span>
+                  </button>
+
+                  <div className="h-4 w-px bg-slate-800" />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      haptics.vibrateTick();
+                      goToTab('register');
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/30 transition-all cursor-pointer min-h-[40px] active:scale-95"
+                  >
+                    <UserPlus className="w-3.5 h-3.5 text-blue-400" />
+                    <span>{isAr ? 'ليس لدي حساب؟ سجل الآن' : 'Register Now'}</span>
+                  </button>
+                </div>
               </form>
             </>
           )}

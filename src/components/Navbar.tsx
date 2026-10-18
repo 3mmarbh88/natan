@@ -199,6 +199,26 @@ export const Navbar: React.FC<NavbarProps> = ({
         )
       : 0;
 
+  const handleToggleMonitoring = () => {
+    if (!isLicensed) {
+      onOpenLicense?.();
+      return;
+    }
+    onUpdateSettings({
+      monitoring: !settings.monitoring,
+    });
+  };
+
+  const handleToggleAutoBooking = () => {
+    if (!isLicensed) {
+      onOpenLicense?.();
+      return;
+    }
+    onUpdateSettings({
+      autoBooking: !settings.autoBooking,
+    });
+  };
+
   return (
     <header
       className="
@@ -470,11 +490,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center gap-1.5 md:hidden">
             <button
               type="button"
-              onClick={() =>
-                onUpdateSettings({
-                  monitoring: !settings.monitoring,
-                })
-              }
+              onClick={handleToggleMonitoring}
               className={`flex items-center gap-1.5 px-3 py-1.5 min-h-[40px] rounded-xl text-xs font-black transition-all shadow-md active:scale-95 cursor-pointer ${
                 settings.monitoring
                   ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30 ring-2 ring-rose-400/30'
@@ -526,11 +542,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* AUTO BOOKING */}
           <button
             type="button"
-            onClick={() =>
-              onUpdateSettings({
-                autoBooking: !settings.autoBooking,
-              })
-            }
+            onClick={handleToggleAutoBooking}
             className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 min-h-[42px] rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer border active:scale-95 ${
               settings.autoBooking
                 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm shadow-emerald-500/20'
@@ -577,7 +589,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* MAIN ENGINE TOGGLE (Desktop only) */}
           <button
             type="button"
-            onClick={() => onUpdateSettings({ monitoring: !settings.monitoring })}
+            onClick={handleToggleMonitoring}
             className={`hidden md:flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-xl text-xs font-black transition-all shadow-lg cursor-pointer shrink-0 active:scale-95 ${
               settings.monitoring
                 ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/30 ring-2 ring-rose-400/30'

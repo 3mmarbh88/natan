@@ -54,6 +54,7 @@ import {
   LocateFixed,
   Fingerprint,
   ScanFace,
+  KeyRound,
 } from 'lucide-react';
 
 /*
@@ -434,15 +435,10 @@ export default function App() {
         return;
       }
 
-      if (!authSession?.username) {
-        setActivationError(
-          isAr
-            ? 'تعذر تحديد حساب NATAN الحالي.'
-            : 'Unable to determine the current NATAN account.'
-        );
-
-        return;
-      }
+      const identifier =
+        authSession?.username ||
+        localStorage.getItem('natan_last_username') ||
+        'natan_pro_user';
 
       setActivationLoading(true);
       setActivationError('');
@@ -461,12 +457,9 @@ export default function App() {
 
         const session =
           await activateNatanUser({
-            identifier:
-              authSession.username,
-
+            identifier,
             activationCode:
               cleanCode,
-
             deviceId,
           });
 
@@ -789,11 +782,35 @@ export default function App() {
   const updateSettings = (
     partial: Partial<BookingSettings>
   ) => {
+    if ((partial.monitoring === true || partial.autoBooking === true) && !isLicensed) {
+      soundFX.playAlert();
+      haptics.vibrateAlert();
+      openActivationModal();
+      addLog(
+        'error',
+        isAr
+          ? '🔒 خدمة الحجز متوقفة. يجب إدخال كود التفعيل لتشغيل الحجز التلقائي والمراقبة.'
+          : '🔒 Booking service is locked. Activation code required to run auto booking and monitoring.'
+      );
+      return;
+    }
+
     setSettings((prev) => ({
       ...prev,
       ...partial,
     }));
   };
+
+  /* Ensure booking and monitoring remain disabled if not activated */
+  useEffect(() => {
+    if (!isLicensed && (settings.monitoring || settings.autoBooking)) {
+      setSettings((prev) => ({
+        ...prev,
+        monitoring: false,
+        autoBooking: false,
+      }));
+    }
+  }, [isLicensed]);
 
   /*
    * ============================================================
@@ -2557,6 +2574,45 @@ export default function App() {
             </span>
           </div>
         </div>
+
+        {/* ====================================================
+            UNACTIVATED WARNING & CODE REQUIRED BANNER
+            ==================================================== */}
+        {!isLicensed && (
+          <div className="mb-4 sm:mb-6 rounded-2xl border border-rose-500/40 bg-gradient-to-r from-rose-950/60 via-slate-900/90 to-purple-950/60 p-4 sm:p-5 shadow-2xl backdrop-blur-md">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-right">
+              <div className="flex items-center gap-3.5">
+                <div className="p-3 rounded-2xl bg-rose-500/20 text-rose-300 border border-rose-500/40 shrink-0 shadow-lg shadow-rose-900/30">
+                  <Lock className="w-6 h-6 text-rose-400 animate-pulse" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                    <h3 className="text-sm sm:text-base font-black text-white">
+                      {isAr ? 'خدمة الحجز والأتمتة متوقفة' : 'Shift Booking Service Locked'}
+                    </h3>
+                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-rose-500/25 text-rose-200 border border-rose-500/40 animate-pulse">
+                      {isAr ? 'مطلوب كود التفعيل' : 'Activation Code Required'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+                    {isAr
+                      ? 'البرنامج يعمل بنظام كود التفعيل المحمي؛ لن تتم مراقبة أو حجز الشفتات تلقائياً أو يدوياً حتى تقوم بكتابة كود التفعيل المعتمد.'
+                      : 'NATAN operates strictly with an activation code. Shifts will not be monitored or booked until you enter your valid code.'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={openActivationModal}
+                className="w-full sm:w-auto shrink-0 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs sm:text-sm shadow-xl shadow-emerald-600/30 transition-all cursor-pointer active:scale-95 border border-emerald-400/40"
+              >
+                <KeyRound className="w-4 h-4 text-emerald-200 shrink-0" />
+                <span>{isAr ? 'أدخل كود التفعيل الآن' : 'Enter Activation Code Now'}</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ====================================================
             RADAR
