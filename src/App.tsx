@@ -1456,6 +1456,7 @@ export default function App() {
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let lastNativeStatusKey = '';
 
     const run = async () => {
       try {
@@ -1478,6 +1479,30 @@ export default function App() {
         };
 
         const status = await NatanAutomation.getAutomationStatus();
+        const statusKey = `${status.status}|${status.detail}`;
+        if (statusKey !== lastNativeStatusKey && status.status && status.status !== 'idle') {
+          lastNativeStatusKey = statusKey;
+          const statusMessages: Record<string, { type: LogEntry['type']; ar: string; en: string }> = {
+            starting: { type: 'info', ar: 'بدء تشغيل أتمتة Ninja؛ جارٍ انتظار قراءة الشاشة.', en: 'Ninja automation is starting; waiting for screen inspection.' },
+            waiting_ninja: { type: 'warning', ar: 'ناتان لا يستطيع قراءة شاشة Ninja الآن.', en: 'NATAN cannot read the active Ninja screen right now.' },
+            waiting_shifts: { type: 'warning', ar: 'تطبيق Ninja مفتوح، لكن لم يتم العثور على قائمة مناوبات قابلة للقراءة أو التمرير.', en: 'Ninja is open, but no readable or scrollable shifts list was found.' },
+            opening_shifts: { type: 'info', ar: 'ناتان يحاول فتح صفحة المناوبات في Ninja.', en: 'NATAN is trying to open the Ninja shifts page.' },
+            refreshing: { type: 'info', ar: 'ناتان يطلب تحديث قائمة المناوبات.', en: 'NATAN requested a refresh of the shifts list.' },
+            searching: { type: 'info', ar: 'ناتان يفحص المناوبات الظاهرة بحثًا عن تطابق.', en: 'NATAN is scanning visible shifts for a match.' },
+            matching: { type: 'info', ar: 'ناتان وجد مناوبة تطابق الشروط؛ يجري التحقق قبل الحجز.', en: 'NATAN found a shift matching the criteria and is validating it before booking.' },
+            booking: { type: 'info', ar: 'تم الضغط على زر الحجز؛ ننتظر تأكيد Ninja.', en: 'The booking button was pressed; waiting for Ninja confirmation.' },
+            confirming: { type: 'info', ar: 'ناتان أرسل تأكيد الحجز وينتظر نتيجة Ninja.', en: 'NATAN sent the booking confirmation and is waiting for Ninja.' },
+            success: { type: 'info', ar: 'أكد Ninja نجاح الحجز.', en: 'Ninja confirmed the booking succeeded.' },
+            failed: { type: 'error', ar: 'أبلغ Ninja عن فشل الحجز.', en: 'Ninja reported that booking failed.' },
+            accessibility_required: { type: 'warning', ar: 'فعّل خدمة إمكانية الوصول الخاصة بناتان.', en: 'Enable NATAN Accessibility Service.' },
+            ninja_not_installed: { type: 'error', ar: 'لم يتم العثور على تطبيق Ninja على الهاتف.', en: 'Ninja was not found on this phone.' },
+            stopped: { type: 'warning', ar: 'الأتمتة متوقفة.', en: 'Automation is stopped.' },
+          };
+          const mapped = statusMessages[status.status];
+          const detail = status.detail ? ` — ${status.detail}` : '';
+          if (mapped) addLog(mapped.type, `${isAr ? mapped.ar : mapped.en}${detail}`);
+          else addLog('info', `${isAr ? 'حالة أتمتة Ninja' : 'Ninja automation status'}: ${status.status}${detail}`);
+        }
         if (!status.running) {
           const started = await startNinjaAutoBooking(criteria);
           if (started.status === 'accessibility_required') {
@@ -1488,7 +1513,7 @@ export default function App() {
             addLog('error', isAr ? '❌ تطبيق Ninja غير مثبت.' : '❌ Ninja is not installed.');
             return;
           }
-          addLog('info', isAr ? '🤖 Auto Booker يعمل داخل Ninja وفق الشروط المحددة.' : '🤖 Auto Booker is running inside Ninja using the configured criteria.');
+          addLog('info', isAr ? 'تم إرسال أمر تشغيل الحجز الآلي إلى Ninja؛ ستظهر حالة القراءة والبحث في السجل.' : 'Auto-booking start command sent to Ninja; screen-reading and search status will appear in the log.');
         }
       } catch (e) {
         if (!cancelled) addLog('error', `Auto Booker: ${e instanceof Error ? e.message : String(e)}`);
