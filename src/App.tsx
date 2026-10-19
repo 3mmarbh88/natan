@@ -11,6 +11,7 @@ import { AiAdvisor } from './components/AiAdvisor';
 import { WhatsAppSupport } from './components/WhatsAppSupport';
 import AuthModal from './components/AuthModal';
 import { SimulatorRadar } from './components/SimulatorRadar';
+import { SplashScreen } from './components/SplashScreen';
 
 import {
   Shift,
@@ -384,6 +385,9 @@ export default function App() {
       authSession.expiresAt >
         Date.now()
     );
+
+  const [showSplashScreen, setShowSplashScreen] =
+    useState<boolean>(true);
 
   const [showAuthModal, setShowAuthModal] =
     useState<boolean>(() => !authSession?.isAuthenticated);
@@ -4175,16 +4179,33 @@ export default function App() {
       )}
 
       {/* ======================================================
+          SPLASH SCREEN (MOBILE & DESKTOP BOOTSTRAP)
+          ====================================================== */}
+
+      {showSplashScreen && (
+        <SplashScreen
+          appName="NATAN Pro"
+          isAr={isAr}
+          onFinish={() => {
+            setShowSplashScreen(false);
+          }}
+        />
+      )}
+
+      {/* ======================================================
           AUTH MODAL
           ====================================================== */}
 
-      {showAuthModal && (
+      {!showSplashScreen && showAuthModal && (
         <AuthModal
           currentSession={
             authSession
           }
           onAuthenticate={
             handleAuthSuccess
+          }
+          onClose={() =>
+            setShowAuthModal(false)
           }
           onOpenWhatsApp={() =>
             setIsWhatsAppModalOpen(

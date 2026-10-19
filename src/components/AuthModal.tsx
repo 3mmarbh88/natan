@@ -1847,6 +1847,7 @@ export default function AuthModal({
                 : (isAr ? 'تم تسجيل الدخول ببصمة الإصبع بنجاح!' : 'Fingerprint login successful!')
             );
             setShowBiometricModal(false);
+            onClose?.();
           }}
         />
       )}
