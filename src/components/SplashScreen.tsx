@@ -79,17 +79,17 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         haptics.vibrateTick();
         soundFX.playSpeedTick();
 
-        // Hold 100% briefly, then trigger smooth fade-out
+        // Hold 100% briefly, then trigger smooth fade-out and open login
         setTimeout(() => {
           setIsFading(true);
           setTimeout(() => {
             onFinish();
-          }, 400);
-        }, 350);
+          }, 250);
+        }, 200);
       } else {
         setProgress(Math.floor(current));
       }
-    }, 40);
+    }, 38);
 
     return () => clearInterval(timer);
   }, [isAr, onFinish]);

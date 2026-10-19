@@ -390,7 +390,7 @@ export default function App() {
     useState<boolean>(true);
 
   const [showAuthModal, setShowAuthModal] =
-    useState<boolean>(() => !authSession?.isAuthenticated);
+    useState<boolean>(true);
 
   const [showActivationModal, setShowActivationModal] =
     useState<boolean>(false);
@@ -4188,6 +4188,7 @@ export default function App() {
           isAr={isAr}
           onFinish={() => {
             setShowSplashScreen(false);
+            setShowAuthModal(true);
           }}
         />
       )}
