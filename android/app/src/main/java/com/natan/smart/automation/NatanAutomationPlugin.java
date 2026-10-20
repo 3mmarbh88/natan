@@ -25,8 +25,11 @@ public class NatanAutomationPlugin extends Plugin {
     public static final String STATUS = "status";
     public static final String DETAIL = "detail";
     public static final String LAST_UPDATE = "last_update";
-    public static final String TARGET_PACKAGE = "com.ananinja.driver";
+    // Verified package in the supplied production Ninja APK.
+    public static final String TARGET_PACKAGE = "com.mehedydev.nova";
     public static final String[] KNOWN_NINJA_PACKAGES = new String[] {
+        // Prefer the verified package before trying legacy/alternate package names.
+        "com.mehedydev.nova",
         "com.ananinja.driver",
         "com.ananinja.rider",
         "com.ananinja.courier",
