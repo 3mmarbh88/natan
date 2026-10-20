@@ -332,6 +332,7 @@ public class NatanAccessibilityService extends AccessibilityService {
         int bestScore = 0;
         int secondScore = 0;
         String bestFingerprint = "";
+        boolean hasBranchFilter = !districts.isEmpty() || !branchNumbers.isEmpty();
         for (AccessibilityNodeInfo node : candidates) {
             String text = normalize(collectText(node));
             if (text.length() < 10 || !hasBookLabel(text)) continue;
@@ -344,7 +345,6 @@ public class NatanAccessibilityService extends AccessibilityService {
             int score = 0;
             int matchedSignals = 0;
 
-            boolean hasBranchFilter = !districts.isEmpty() || !branchNumbers.isEmpty();
             if (hasBranchFilter) {
                 if (matchesDistrictOrBranch(text, districts, branchNumbers)) {
                     score += 6;
