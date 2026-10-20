@@ -195,6 +195,12 @@ export interface BookingSettings {
   soundAlert: boolean;
 
   vibrationAlert: boolean;
+
+  /** Interval in seconds between pull-to-refresh swipe gestures (e.g. 1.0, 1.5, 2.5) */
+  pullToRefreshIntervalSeconds?: number;
+
+  /** Turbo booking mode: instantly trigger book button with minimal delay */
+  turboSniperMode?: boolean;
 }
 
 /* =========================================================

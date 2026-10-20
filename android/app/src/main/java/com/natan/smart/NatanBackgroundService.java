@@ -67,6 +67,13 @@ public class NatanBackgroundService extends Service {
                 try { manager.removeTestProvider(LocationManager.GPS_PROVIDER); } catch (Exception ignored) {}
                 manager.addTestProvider(LocationManager.GPS_PROVIDER, true, false, false, false, true, true, true, 1, 1);
                 manager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, true);
+
+                try { manager.removeTestProvider(LocationManager.NETWORK_PROVIDER); } catch (Exception ignored) {}
+                try {
+                    manager.addTestProvider(LocationManager.NETWORK_PROVIDER, false, false, false, false, true, true, true, 1, 1);
+                    manager.setTestProviderEnabled(LocationManager.NETWORK_PROVIDER, true);
+                } catch (Exception ignored) {}
+
                 mockProviderAdded = true;
             }
             handler.removeCallbacks(publisher);
@@ -102,6 +109,17 @@ public class NatanBackgroundService extends Service {
         l.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
         try {
             manager().setTestProviderLocation(LocationManager.GPS_PROVIDER, l);
+
+            try {
+                Location netL = new Location(LocationManager.NETWORK_PROVIDER);
+                netL.setLatitude(lat);
+                netL.setLongitude(lng);
+                netL.setAccuracy(3f);
+                netL.setTime(System.currentTimeMillis());
+                netL.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
+                manager().setTestProviderLocation(LocationManager.NETWORK_PROVIDER, netL);
+            } catch (Exception ignored) {}
+
             p.edit().putString("mock_status", "active")
                     .putString("mock_detail", "Android mock location is active for the selected point.")
                     .putLong("mock_last_update", System.currentTimeMillis()).apply();
@@ -118,6 +136,8 @@ public class NatanBackgroundService extends Service {
         if (manager != null) {
             try { manager.setTestProviderEnabled(LocationManager.GPS_PROVIDER, false); } catch (Exception ignored) {}
             try { manager.removeTestProvider(LocationManager.GPS_PROVIDER); } catch (Exception ignored) {}
+            try { manager.setTestProviderEnabled(LocationManager.NETWORK_PROVIDER, false); } catch (Exception ignored) {}
+            try { manager.removeTestProvider(LocationManager.NETWORK_PROVIDER); } catch (Exception ignored) {}
         }
         mockProviderAdded = false;
         getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(MOCK_ACTIVE, false).putString("mock_status", "stopped").apply();

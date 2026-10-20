@@ -4,10 +4,11 @@ import { AppAuthSession } from '../types';
 // NATAN API CONFIG
 // ============================================================
 
+const RAW_API_URL = (import.meta.env.VITE_NATAN_API_URL as string | undefined)?.trim();
 const API_BASE_URL =
-  (import.meta.env.VITE_NATAN_API_URL as string | undefined)
-    ?.replace(/\/+$/, '') ||
-  'https://natan-server.onrender.com';
+  RAW_API_URL && RAW_API_URL.length > 4
+    ? RAW_API_URL.replace(/\/+$/, '')
+    : 'https://natan-server.onrender.com';
 
 // ============================================================
 // STORAGE KEYS

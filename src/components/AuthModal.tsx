@@ -1147,17 +1147,10 @@ export default function AuthModal({
             </button>
           </div>
 
-          {onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl p-2 text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer min-w-[38px] min-h-[38px] flex items-center justify-center active:scale-95"
-              aria-label={isAr ? 'إغلاق' : 'Close'}
-              title={isAr ? 'إغلاق والدخول لشاشة البرنامج' : 'Close and enter app'}
-            >
-              <X size={20} />
-            </button>
-          )}
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+            <ShieldCheck className="w-4 h-4 text-purple-400" />
+            <span>{isAr ? 'بوابة الدخول الآمن' : 'Secure Login'}</span>
+          </div>
         </div>
 
         <div className="border-b border-slate-800/80 bg-gradient-to-b from-purple-950/20 via-slate-900/60 to-slate-950 px-5 sm:px-6 pb-4 sm:pb-5 pt-5 sm:pt-6 text-center">

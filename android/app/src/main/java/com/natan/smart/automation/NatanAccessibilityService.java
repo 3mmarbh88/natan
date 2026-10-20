@@ -240,29 +240,25 @@ public class NatanAccessibilityService extends AccessibilityService {
             }
         }
 
-        AccessibilityNodeInfo refresh = findClickableByLabels(root, Arrays.asList("refresh", "تحديث", "اسحب للتحديث"));
+        AccessibilityNodeInfo refresh = findClickableByLabels(root, Arrays.asList("refresh", "تحديث", "اسحب للتحديث", "سحب للتحديث"));
         if (targetCard == null) {
             long now = System.currentTimeMillis();
-            if (scrolls >= 8 && now - lastRefreshAt >= REFRESH_INTERVAL_MS) {
-                scrolls = 0;
-            }
-            if (scrolls == 0 && now - lastRefreshAt >= REFRESH_INTERVAL_MS) {
+            long refreshInterval = criteria.optLong("refreshIntervalMs", 1500L);
+            if (refreshInterval < 700L) refreshInterval = 700L;
+
+            if (now - lastRefreshAt >= refreshInterval) {
                 boolean refreshed = refresh != null && performClick(refresh, "refresh");
                 if (!refreshed) refreshed = performPullToRefresh(root);
                 if (refreshed) {
                     lastRefreshAt = now;
-                    scrolls = 1;
-                    setStatus("refreshing", "Refresh requested; waiting for Ninja to load the latest shifts");
+                    scrolls = 0;
+                    setStatus("refreshing", "Ninja pull-down refresh executed; waiting for new shifts");
                     return;
                 }
-                // Avoid firing repeated gestures when the current page does not support refresh.
                 lastRefreshAt = now;
-            }
-            if (scrollDown(root)) {
+            } else if (scrolls < 3 && scrollDown(root)) {
                 scrolls++;
-                setStatus("searching", "Scanning visible Ninja shifts; will refresh and retry periodically");
-            } else if (scrolls == 0) {
-                reportStatusIfChanged("waiting_shifts", "Ninja is active, but no scrollable shift list or refresh control is currently available");
+                setStatus("searching", "Scanning visible Ninja shifts");
             }
         }
     }
@@ -588,16 +584,17 @@ public class NatanAccessibilityService extends AccessibilityService {
         if (bounds.isEmpty() || bounds.width() < 100 || bounds.height() < 250) return false;
 
         int x = bounds.centerX();
-        int startY = bounds.top + Math.max(60, (int) (bounds.height() * 0.08));
-        int endY = Math.min(bounds.bottom - 40,
-                startY + Math.max(220, (int) (bounds.height() * 0.28)));
-        if (endY <= startY + 100) return false;
+        // Start pulling down from ~22% of screen height
+        int startY = bounds.top + Math.max(100, (int) (bounds.height() * 0.22));
+        // Drag downwards to ~65% of screen height (ample travel distance to trigger pull-to-refresh)
+        int endY = bounds.top + Math.max(startY + 250, (int) (bounds.height() * 0.65));
+        if (endY <= startY + 120) return false;
 
         Path path = new Path();
         path.moveTo(x, startY);
         path.lineTo(x, endY);
         GestureDescription.StrokeDescription stroke =
-                new GestureDescription.StrokeDescription(path, 0, 450);
+                new GestureDescription.StrokeDescription(path, 0, 360);
         GestureDescription gesture = new GestureDescription.Builder()
                 .addStroke(stroke)
                 .build();

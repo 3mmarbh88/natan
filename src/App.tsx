@@ -147,6 +147,8 @@ const INITIAL_SETTINGS: BookingSettings = {
 
   soundAlert: true,
   vibrationAlert: true,
+  pullToRefreshIntervalSeconds: 1.5,
+  turboSniperMode: true,
 };
 
 /*
@@ -1656,6 +1658,9 @@ export default function App() {
           maxDurationHours: settings.maxDurationHours,
           onlyPeakHours: settings.onlyPeakHours,
           autoConfirmDialog: settings.autoConfirmDialog,
+          pullToRefreshIntervalSeconds: settings.pullToRefreshIntervalSeconds ?? 1.5,
+          turboSniperMode: settings.turboSniperMode ?? true,
+          refreshIntervalMs: Math.max(800, Math.round((settings.pullToRefreshIntervalSeconds ?? 1.5) * 1000)),
         };
 
         const status = await NatanAutomation.getAutomationStatus();
@@ -2815,6 +2820,7 @@ export default function App() {
                 screenReaderStatus={screenReaderStatus}
                 onRefreshScreenSnapshot={refreshNinjaScreenSnapshot}
                 onOpenAccessibilitySettings={handleOpenAccessibilitySettings}
+                onUpdateSettings={updateSettings}
               />
             </div>
 

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Radio, Zap, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle, Clock, MapPin, Trash2, Flame, Sparkles, Lock, X, Ban, Eye, RefreshCw, Smartphone, Settings as SettingsIcon, ExternalLink } from 'lucide-react';
+import { Radio, Zap, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle, Clock, MapPin, Trash2, Flame, Sparkles, Lock, X, Ban, Eye, RefreshCw, Smartphone, Settings as SettingsIcon, ExternalLink, Sliders, Volume2, Bell, Gauge } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Shift, BookingSettings, PerformanceStats } from '../types';
 import { soundFX } from '../utils/audio';
+import { haptics } from '../utils/haptics';
 import { findConflictingShift } from '../utils/timeConflict';
 import { NatanLogo } from './NatanLogo';
 import { useLanguage } from '../utils/i18n';
@@ -27,6 +28,7 @@ interface SimulatorRadarProps {
   };
   onRefreshScreenSnapshot?: () => Promise<void>;
   onOpenAccessibilitySettings?: () => Promise<void>;
+  onUpdateSettings?: (patch: Partial<BookingSettings>) => void;
 }
 
 export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
@@ -42,6 +44,7 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
   screenReaderStatus,
   onRefreshScreenSnapshot,
   onOpenAccessibilitySettings,
+  onUpdateSettings,
 }) => {
   const { t, isAr } = useLanguage();
   const [modalShift, setModalShift] = useState<Shift | null>(null);
@@ -205,6 +208,112 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
             </p>
           </div>
         ) : null}
+      </div>
+
+      {/* Sniper Speed & Pull-to-Refresh Controls */}
+      <div className="p-3.5 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-950 border border-slate-800 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/60 pb-2.5">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <Sliders className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-black text-white">
+                {isAr ? 'إعدادات قناص نينجا وسرعة التحديث' : 'Sniper & Refresh Rate Controls'}
+              </span>
+              <p className="text-[10px] text-slate-400">
+                {isAr ? 'التحكم في حركة السحب للأسفل ومعدل التكرار وسرعة النقر' : 'Adjust pull-to-refresh frequency, turbo click, and alert notifications'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => {
+                haptics.vibrateCapture();
+                soundFX.playSuccess();
+              }}
+              className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1 transition-all"
+              title={isAr ? 'تجربة صوت واهتزاز الصيد' : 'Test sound and vibration'}
+            >
+              <Volume2 className="w-3 h-3 text-emerald-400" />
+              <span>{isAr ? '🔔 اختبار الصوت والاهتزاز' : 'Test Alert'}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          {/* Pull-to-refresh interval selection */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-slate-300 font-bold flex items-center gap-1">
+                <RefreshCw className="w-3 h-3 text-sky-400" />
+                {isAr ? 'تردد سحب الشاشة (Pull-to-Refresh):' : 'Pull-to-Refresh Rate:'}
+              </span>
+              <span className="font-mono text-[10px] text-sky-400 font-black">
+                {settings.pullToRefreshIntervalSeconds ?? 1.5}s
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {[
+                { val: 0.8, labelAr: '0.8ث (توربو)', labelEn: '0.8s Turbo' },
+                { val: 1.5, labelAr: '1.5ث (متوازن)', labelEn: '1.5s Balanced' },
+                { val: 2.5, labelAr: '2.5ث (هادئ)', labelEn: '2.5s Calm' },
+              ].map((opt) => {
+                const active = (settings.pullToRefreshIntervalSeconds ?? 1.5) === opt.val;
+                return (
+                  <button
+                    key={opt.val}
+                    type="button"
+                    onClick={() => {
+                      haptics.vibrateTick();
+                      onUpdateSettings?.({ pullToRefreshIntervalSeconds: opt.val });
+                    }}
+                    className={`py-1.5 px-2 rounded-xl text-[10px] font-black border transition-all text-center ${
+                      active
+                        ? 'bg-sky-500/20 text-sky-300 border-sky-500/50 shadow-sm shadow-sky-500/10'
+                        : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:bg-slate-800 hover:text-slate-200'
+                    }`}
+                  >
+                    {isAr ? opt.labelAr : opt.labelEn}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Turbo sniper toggle */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-slate-300 font-bold flex items-center gap-1">
+                <Gauge className="w-3 h-3 text-amber-400" />
+                {isAr ? 'وضع القناص التوربو:' : 'Turbo Sniper Mode:'}
+              </span>
+              <span className="text-[10px] font-black text-amber-400">
+                {(settings.turboSniperMode ?? true) ? (isAr ? 'نشط (<50ms)' : 'Active') : (isAr ? 'عادي' : 'Normal')}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                haptics.vibrateTick();
+                onUpdateSettings?.({ turboSniperMode: !(settings.turboSniperMode ?? true) });
+              }}
+              className={`w-full py-1.5 px-3 rounded-xl text-[10px] font-black border flex items-center justify-between transition-all ${
+                (settings.turboSniperMode ?? true)
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm shadow-amber-500/10'
+                  : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:bg-slate-800'
+              }`}
+            >
+              <span>{isAr ? '⚡ نقر فوري فائق السرعة' : 'Instant Click Without Delay'}</span>
+              <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono ${
+                (settings.turboSniperMode ?? true) ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-400'
+              }`}>
+                {(settings.turboSniperMode ?? true) ? (isAr ? 'مفعّل' : 'ON') : (isAr ? 'معطل' : 'OFF')}
+              </span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Auto Booking Status Banner */}
