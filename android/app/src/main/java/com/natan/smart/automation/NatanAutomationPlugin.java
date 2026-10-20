@@ -25,7 +25,51 @@ public class NatanAutomationPlugin extends Plugin {
     public static final String STATUS = "status";
     public static final String DETAIL = "detail";
     public static final String LAST_UPDATE = "last_update";
-    public static final String TARGET_PACKAGE = "com.mehedydev.nova";
+    public static final String TARGET_PACKAGE = "com.ananinja.driver";
+    public static final String[] KNOWN_NINJA_PACKAGES = new String[] {
+        "com.ananinja.driver",
+        "com.ananinja.rider",
+        "com.ananinja.courier",
+        "com.ananinja.captain",
+        "com.ananinja",
+        "com.ninja.driver",
+        "com.ninja.captain",
+        "com.ninja.courier",
+        "com.ninja.delivery",
+        "com.ninja.ksa",
+        "com.ninja.driver.ksa",
+        "com.ninja.ksa.driver",
+        "com.ninja.rider",
+        "sa.ninja.driver",
+        "sa.ninja",
+        "com.ninja.app",
+        "com.ananinja.driver.ksa",
+        "com.mehedydev.nova"
+    };
+
+    public static Intent getLaunchIntentForNinja(Context context) {
+        if (context == null) return null;
+        PackageManager pm = context.getPackageManager();
+        for (String pkg : KNOWN_NINJA_PACKAGES) {
+            try {
+                Intent intent = pm.getLaunchIntentForPackage(pkg);
+                if (intent != null) return intent;
+            } catch (Exception ignored) {}
+        }
+        try {
+            java.util.List<android.content.pm.ApplicationInfo> apps = pm.getInstalledApplications(PackageManager.GET_META_DATA);
+            for (android.content.pm.ApplicationInfo app : apps) {
+                if (app.packageName != null) {
+                    String p = app.packageName.toLowerCase(java.util.Locale.ROOT);
+                    if (p.contains("ninja") || p.contains("ananinja")) {
+                        Intent intent = pm.getLaunchIntentForPackage(app.packageName);
+                        if (intent != null) return intent;
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
 
     private SharedPreferences prefs() {
         return getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -58,17 +102,18 @@ public class NatanAutomationPlugin extends Plugin {
             return;
         }
 
-        Intent launch = getContext().getPackageManager().getLaunchIntentForPackage(TARGET_PACKAGE);
-        if (launch == null) {
-            prefs().edit().putBoolean(RUNNING, false)
-                    .putString(STATUS, "ninja_not_installed")
-                    .putString(DETAIL, "Ninja application was not found")
-                    .putLong(LAST_UPDATE, System.currentTimeMillis()).apply();
-            call.resolve(statusObject());
-            return;
+        Intent launch = getLaunchIntentForNinja(getContext());
+        if (launch != null) {
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            getContext().startActivity(launch);
+        } else {
+            // Keep running even if launch intent is not direct, so user can bring Ninja to foreground
+            prefs().edit()
+                    .putString(STATUS, "waiting_ninja")
+                    .putString(DETAIL, "Ninja app not auto-launched; please open Ninja manually and keep shifts visible.")
+                    .putLong(LAST_UPDATE, System.currentTimeMillis())
+                    .apply();
         }
-        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        getContext().startActivity(launch);
         call.resolve(statusObject());
     }
 
@@ -100,20 +145,17 @@ public class NatanAutomationPlugin extends Plugin {
             return;
         }
 
-        Intent launch = getContext().getPackageManager().getLaunchIntentForPackage(TARGET_PACKAGE);
-        if (launch == null) {
+        Intent launch = getLaunchIntentForNinja(getContext());
+        if (launch != null) {
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            getContext().startActivity(launch);
+        } else {
             prefs().edit()
-                    .putBoolean(RUNNING, false)
-                    .putString(STATUS, "ninja_not_installed")
-                    .putString(DETAIL, "Ninja application was not found")
+                    .putString(STATUS, "waiting_ninja")
+                    .putString(DETAIL, "Ninja app not auto-launched; please open Ninja manually and keep shifts visible.")
                     .putLong(LAST_UPDATE, System.currentTimeMillis())
                     .apply();
-            call.resolve(statusObject());
-            return;
         }
-
-        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        getContext().startActivity(launch);
         call.resolve(statusObject());
     }
 

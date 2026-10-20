@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Radio, Zap, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle, Clock, MapPin, Trash2, Flame, Sparkles, Lock, X, Ban } from 'lucide-react';
+import { Radio, Zap, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle, Clock, MapPin, Trash2, Flame, Sparkles, Lock, X, Ban, Eye, RefreshCw, Smartphone, Settings as SettingsIcon, ExternalLink } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Shift, BookingSettings, PerformanceStats } from '../types';
 import { soundFX } from '../utils/audio';
@@ -17,6 +17,16 @@ interface SimulatorRadarProps {
   onDeleteShift?: (shiftId: string) => void;
   isAutoSimulating: boolean;
   onToggleAutoSimulating: () => void;
+  screenReaderStatus?: {
+    packageName: string;
+    text: string;
+    timestamp: number;
+    isAccessibilityEnabled: boolean;
+    automationStatus: string;
+    automationDetail: string;
+  };
+  onRefreshScreenSnapshot?: () => Promise<void>;
+  onOpenAccessibilitySettings?: () => Promise<void>;
 }
 
 export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
@@ -29,13 +39,26 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
   onDeleteShift,
   isAutoSimulating,
   onToggleAutoSimulating,
+  screenReaderStatus,
+  onRefreshScreenSnapshot,
+  onOpenAccessibilitySettings,
 }) => {
   const { t, isAr } = useLanguage();
   const [modalShift, setModalShift] = useState<Shift | null>(null);
+  const [isRefreshingScreen, setIsRefreshingScreen] = useState(false);
 
   const handleTestDrop = () => {
-    // Production: simulated drops are disabled.
     onTriggerInstantDrop();
+  };
+
+  const handleRefreshScreen = async () => {
+    if (!onRefreshScreenSnapshot) return;
+    setIsRefreshingScreen(true);
+    try {
+      await onRefreshScreenSnapshot();
+    } finally {
+      setTimeout(() => setIsRefreshingScreen(false), 500);
+    }
   };
 
   const handleManualClick = (shift: Shift) => {
@@ -46,10 +69,8 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
     }
 
     if (settings.autoConfirmDialog) {
-      // Auto confirm directly
       onBookShiftManually(shift.id);
     } else {
-      // Show confirmation dialog matching video
       setModalShift(shift);
     }
   };
@@ -92,13 +113,98 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
               </span>
             </h2>
             <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">
-              {isAr ? 'مراقبة شفتات Ninja الحقيقية فقط. لا توجد شفتات تجريبية في نسخة الإنتاج.' : 'Monitoring real Ninja shifts only. No simulated shifts are used in production.'}
+              {isAr ? 'مراقبة شاشة وقوائم شفتات Ninja بالذكاء الاصطناعي مع إمكانية الوصول' : 'Monitoring real Ninja shifts screen via Android Accessibility'}
             </p>
           </div>
         </div>
 
-        {/* Header actions removed: direct Ninja API is not available */}
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end"></div>
+        {/* Action Buttons: Flash Shift & Screen Reader Check */}
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+          {onRefreshScreenSnapshot && (
+            <button
+              onClick={handleRefreshScreen}
+              disabled={isRefreshingScreen}
+              className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-1.5 transition-all shadow-sm"
+              title={isAr ? 'فحص شاشة Ninja الآن' : 'Inspect Ninja Screen Now'}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-sky-400 ${isRefreshingScreen ? 'animate-spin' : ''}`} />
+              <span>{isAr ? 'قراءة الشاشة الآن' : 'Scan Screen'}</span>
+            </button>
+          )}
+
+          <button
+            onClick={handleTestDrop}
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-purple-500/20 hover:from-amber-500/30 hover:to-purple-500/30 active:scale-95 text-amber-300 text-xs font-black border border-amber-500/40 flex items-center gap-1.5 transition-all shadow-sm shadow-amber-500/10"
+          >
+            <Zap className="w-3.5 h-3.5 fill-current text-amber-400" />
+            <span>{isAr ? 'شفت تجريبي (فلاشي)' : 'Flash Shift'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Screen Reader Live Status Card */}
+      <div className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
+              <Eye className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="text-xs font-black text-white">
+                {isAr ? 'قارئ شاشة Ninja التلقائي (Accessibility)' : 'Ninja Screen Reader Status'}
+              </span>
+              <p className="text-[10px] text-slate-400">
+                {isAr
+                  ? 'يقوم NATAN بقراءة تفاصيل الشفتات والضغط على "حجز فترة الدوام" فور نزولها'
+                  : 'NATAN reads shift cards and clicks "Book Shift" the instant it drops'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {screenReaderStatus?.isAccessibilityEnabled === false ? (
+              <button
+                onClick={onOpenAccessibilitySettings}
+                className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[11px] font-bold flex items-center gap-1 hover:bg-rose-500/30 transition-all"
+              >
+                <SettingsIcon className="w-3 h-3 text-rose-400" />
+                <span>{isAr ? '⚙️ تفعيل الخدمة في الإعدادات' : 'Enable in Settings'}</span>
+              </button>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                <span>{isAr ? 'خدمة الوصول مفعلة' : 'Accessibility Active'}</span>
+              </span>
+            )}
+
+            {screenReaderStatus?.packageName ? (
+              <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-[10px] font-mono">
+                {screenReaderStatus.packageName.includes('ninja')
+                  ? `🟢 ${screenReaderStatus.packageName}`
+                  : `🟡 ${screenReaderStatus.packageName}`}
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full bg-slate-800/80 text-slate-400 border border-slate-700 text-[10px]">
+                {isAr ? 'بانتظار ظهور Ninja' : 'Waiting for Ninja'}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Live Snapshot details preview if text captured */}
+        {screenReaderStatus?.text ? (
+          <div className="bg-slate-900/90 rounded-xl p-2.5 border border-slate-800/90 text-[11px] text-slate-300 space-y-1">
+            <div className="flex items-center justify-between text-slate-400 text-[10px]">
+              <span>{isAr ? 'آخر نص تم التقاطه من الشاشة:' : 'Last captured screen text:'}</span>
+              <span className="font-mono">
+                {screenReaderStatus.timestamp ? new Date(screenReaderStatus.timestamp).toLocaleTimeString() : ''}
+              </span>
+            </div>
+            <p className="line-clamp-2 text-slate-200 font-mono text-[10px] bg-slate-950/60 p-1.5 rounded-lg border border-slate-800/50">
+              {screenReaderStatus.text}
+            </p>
+          </div>
+        ) : null}
       </div>
 
       {/* Auto Booking Status Banner */}
@@ -184,12 +290,23 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
         </div>
 
         {availableShifts.length === 0 ? (
-          <div className="p-8 text-center rounded-2xl bg-slate-800/20 border border-dashed border-slate-800 space-y-2">
-            <Radio className="w-8 h-8 text-slate-600 mx-auto animate-pulse" />
-            <p className="text-xs font-medium text-slate-300">{t.noShiftsAvailable}</p>
-            <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
-              {isAr ? 'اضغط على زر "شفت فلاشي" بالأعلى لمحاكاة نزول شفت واختبار سرعة استجابة المحرك بنسبة 100%!' : 'Click "Flash Shift" above to drop a test shift and verify engine speed!'}
+          <div className="p-6 sm:p-8 text-center rounded-2xl bg-slate-800/20 border border-dashed border-slate-800 space-y-3">
+            <Radio className="w-8 h-8 text-purple-400/80 mx-auto animate-pulse" />
+            <p className="text-xs sm:text-sm font-bold text-slate-200">{t.noShiftsAvailable}</p>
+            <p className="text-[11px] text-slate-400 max-w-md mx-auto leading-relaxed">
+              {isAr
+                ? '⚡ ناتان يراقب شاشة تطبيق Ninja عبر خدمة إمكانية الوصول. عند نزول أي شفت في Ninja سيقوم ناتان بقراءته وحجزه فوراً. يمكنك الضغط على "تجربة نزول شفت الآن" للتحقق من سرعة الحجز.'
+                : '⚡ NATAN is monitoring Ninja via Accessibility. Any dropped shift in Ninja will be read and booked immediately. Tap "Test Drop Shift Now" to verify engine speed.'}
             </p>
+            <div className="pt-2 flex justify-center gap-2">
+              <button
+                onClick={handleTestDrop}
+                className="px-4 py-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-black flex items-center gap-2 hover:bg-amber-500/30 transition-all active:scale-95 shadow-sm"
+              >
+                <Zap className="w-3.5 h-3.5 fill-current text-amber-400" />
+                <span>{isAr ? 'تجربة نزول شفت الآن (فلاشي)' : 'Test Drop Shift Now'}</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">

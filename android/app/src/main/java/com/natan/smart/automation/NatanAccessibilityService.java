@@ -32,9 +32,50 @@ public class NatanAccessibilityService extends AccessibilityService {
     public static String getLastScreenPackage() { return lastScreenPackage; }
     public static long getLastSnapshotTimestamp() { return lastSnapshotTimestamp; }
     private static final String TAG = "NATAN_AUTOMATION";
-    private static final String NINJA_PACKAGE = NatanAutomationPlugin.TARGET_PACKAGE;
     private static final long STEP_MS = 320L;
     private static final long REFRESH_INTERVAL_MS = 20_000L;
+
+    public static boolean isNinjaPackage(CharSequence pkg) {
+        if (pkg == null) return false;
+        String p = pkg.toString().toLowerCase(Locale.ROOT);
+        for (String known : NatanAutomationPlugin.KNOWN_NINJA_PACKAGES) {
+            if (p.equals(known)) return true;
+        }
+        return p.contains("ninja") || p.contains("ananinja") || p.contains("captain") || p.contains("courier");
+    }
+
+    private AccessibilityNodeInfo findNinjaRootNode() {
+        AccessibilityNodeInfo active = getRootInActiveWindow();
+        if (active != null) {
+            CharSequence pkg = active.getPackageName();
+            if (isNinjaPackage(pkg) || isNinjaContent(active)) {
+                return active;
+            }
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 21) {
+            try {
+                List<android.view.accessibility.AccessibilityWindowInfo> windows = getWindows();
+                if (windows != null) {
+                    for (android.view.accessibility.AccessibilityWindowInfo window : windows) {
+                        AccessibilityNodeInfo wRoot = window.getRoot();
+                        if (wRoot != null) {
+                            CharSequence pkg = wRoot.getPackageName();
+                            if (isNinjaPackage(pkg) || isNinjaContent(wRoot)) {
+                                return wRoot;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        return active;
+    }
+
+    private boolean isNinjaContent(AccessibilityNodeInfo node) {
+        if (node == null) return false;
+        String text = normalize(collectText(node));
+        return containsAny(text, Arrays.asList("ninja", "نينجا", "حجز فترة الدوام", "حجز دوام", "احجز دوام", "الورديات", "دوامي", "المناوبات", "شفتات"));
+    }
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private long startedAt = 0L;
@@ -66,7 +107,13 @@ public class NatanAccessibilityService extends AccessibilityService {
         if (event == null || !isRunning()) return;
         ensureWatchdogStarted();
         CharSequence pkg = event.getPackageName();
-        if (pkg != null && !NINJA_PACKAGE.contentEquals(pkg)) return;
+        if (pkg != null && !isNinjaPackage(pkg)) {
+            // Check if there is still a Ninja window active before skipping
+            AccessibilityNodeInfo root = findNinjaRootNode();
+            if (root == null || (!isNinjaPackage(root.getPackageName()) && !isNinjaContent(root))) {
+                return;
+            }
+        }
         inspectAndAct();
     }
 
@@ -101,7 +148,11 @@ public class NatanAccessibilityService extends AccessibilityService {
     }
 
     private SharedPreferences prefs() {
-        return getSharedPreferences(NatanAutomationPlugin.PREFS, Context.MODE_PRIVATE);
+        return getContext().getSharedPreferences(NatanAutomationPlugin.PREFS, Context.MODE_PRIVATE);
+    }
+
+    private Context getContext() {
+        return this;
     }
 
     private JSONObject target() {
@@ -123,26 +174,28 @@ public class NatanAccessibilityService extends AccessibilityService {
     private void inspectAndAct() {
         if (!isRunning()) return;
         ensureWatchdogStarted();
-        AccessibilityNodeInfo root = getRootInActiveWindow();
+        AccessibilityNodeInfo root = findNinjaRootNode();
         if (root == null) {
-            lastScreenPackage = "";
-            lastScreenSnapshot = "";
-            lastSnapshotTimestamp = System.currentTimeMillis();
             reportStatusIfChanged("waiting_ninja", "No active window is available to Accessibility. Unlock the phone and bring Ninja to the foreground.");
             return;
         }
         CharSequence pkg = root.getPackageName();
-        lastScreenPackage = pkg == null ? "" : pkg.toString();
-        lastSnapshotTimestamp = System.currentTimeMillis();
-        if (pkg == null || !NINJA_PACKAGE.contentEquals(pkg)) {
-            lastScreenSnapshot = "";
+        if (pkg != null && !pkg.toString().isEmpty()) {
+            lastScreenPackage = pkg.toString();
+        }
+
+        boolean isNinja = isNinjaPackage(pkg) || isNinjaContent(root);
+        if (!isNinja) {
             reportStatusIfChanged("waiting_ninja", "Ninja is not the active screen (current package: " + lastScreenPackage + "). Open Ninja and keep its shifts screen visible.");
             return;
         }
         lastReportedStatus = "";
 
         String allText = collectText(root);
-        lastScreenSnapshot = allText;
+        if (!allText.isEmpty()) {
+            lastScreenSnapshot = allText;
+            lastSnapshotTimestamp = System.currentTimeMillis();
+        }
         String lower = normalize(allText);
 
         if (containsAny(lower, Arrays.asList("shift booked successfully", "booking confirmed", "successfully booked", "تم حجز المناوبة بنجاح", "تم تأكيد الحجز", "اكتمل الحجز بنجاح"))) {
@@ -290,17 +343,24 @@ public class NatanAccessibilityService extends AccessibilityService {
 
             int score = 0;
             int matchedSignals = 0;
+
+            boolean hasBranchFilter = !districts.isEmpty() || !branchNumbers.isEmpty();
+            if (hasBranchFilter) {
+                if (matchesDistrictOrBranch(text, districts, branchNumbers)) {
+                    score += 6;
+                    matchedSignals++;
+                } else {
+                    continue;
+                }
+            }
+
             if (!city.isEmpty()) {
-                if (containsToken(text, city)) { score += 4; matchedSignals++; }
-                else continue;
-            }
-            if (!districts.isEmpty()) {
-                if (containsToken(text, districts)) { score += 6; matchedSignals++; }
-                else continue;
-            }
-            if (!branchNumbers.isEmpty()) {
-                if (containsToken(text, branchNumbers)) { score += 6; matchedSignals++; }
-                else continue;
+                if (containsToken(text, city)) {
+                    score += 3;
+                    matchedSignals++;
+                } else if (!hasBranchFilter) {
+                    continue;
+                }
             }
 
             int[] pair = extractTimePair(text);
@@ -312,12 +372,14 @@ public class NatanAccessibilityService extends AccessibilityService {
                 matchedSignals++;
                 if (withinWindow(pair[1], startWindow, endWindow)) score += 1;
             } else if (minHours > 0 || maxHours < 99 || !"00:00".equals(startWindow) || !"23:59".equals(endWindow)) {
-                continue;
+                if (!hasBranchFilter) continue;
             }
 
             if (!days.isEmpty()) {
-                if (containsToken(text, days)) { score += 3; matchedSignals++; }
-                else continue;
+                if (containsToken(text, days)) {
+                    score += 3;
+                    matchedSignals++;
+                }
             }
             if (onlyPeak) {
                 if (containsAny(text, Arrays.asList("peak", "ذروة", "مميز", "prime", "حوافز", "بونص", "bonus"))) {
@@ -342,23 +404,50 @@ public class NatanAccessibilityService extends AccessibilityService {
             }
         }
 
-        // If configured constraints provide too little evidence, or the top
-        // two candidates are tied, do not guess and risk booking the wrong shift.
-        int requiredSignals = (!city.isEmpty() ? 1 : 0) + (!districts.isEmpty() ? 1 : 0)
-                + (!branchNumbers.isEmpty() ? 1 : 0) + (!days.isEmpty() ? 1 : 0)
-                + ((minHours > 0 || maxHours < 99 || !"00:00".equals(startWindow) || !"23:59".equals(endWindow)) ? 1 : 0)
-                + (onlyPeak ? 1 : 0);
-        int minimumScore = requiredSignals >= 2 ? 8 : 5;
-        if (bestScore < minimumScore || (secondScore > 0 && bestScore == secondScore)) {
-            setStatus("searching", "AI matcher found no unique high-confidence shift; continuing to scan");
+        // Minimum score threshold
+        int minimumScore = hasBranchFilter ? 6 : 4;
+        if (bestScore < minimumScore) {
+            setStatus("searching", "Scanning visible Ninja shifts (waiting for match); continuing to scan");
             return null;
         }
         setStatus("matching", "On-device matcher selected a shift matching configured criteria (score " + bestScore + ")");
         return best;
     }
 
+    private boolean matchesDistrictOrBranch(String text, String districts, String branchNumbers) {
+        if ((districts == null || districts.isEmpty()) && (branchNumbers == null || branchNumbers.isEmpty())) {
+            return true;
+        }
+        if (branchNumbers != null && !branchNumbers.isEmpty()) {
+            for (String num : branchNumbers.split("\\|")) {
+                String cleanNum = num.replace("#", "").trim();
+                if (!cleanNum.isEmpty() && (text.contains("#" + cleanNum) || text.contains(cleanNum))) {
+                    return true;
+                }
+            }
+        }
+        if (districts != null && !districts.isEmpty()) {
+            for (String d : districts.split("\\|")) {
+                String clean = normalize(d);
+                if (clean.isEmpty()) continue;
+                if (text.contains(clean)) return true;
+                for (String part : clean.split("[\\s()#]+")) {
+                    if (part.length() >= 3 && text.contains(part)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     private boolean hasBookLabel(String text) {
-        return containsAny(text, Arrays.asList("book shift", "book", "حجز فترة الدوام", "حجز دوام", "احجز دوام", "احجز", "حجز"));
+        return containsAny(text, Arrays.asList(
+            "book shift", "book", "حجز فترة الدوام", "حجز دوام", "احجز دوام",
+            "احجز", "حجز", "حجز المناوبة", "حجز الوردية", "حجز الشفت",
+            "احجز الآن", "احجز الان", "طلب الحجز", "استلام الوردية", "تسجيل الدوام", "claim",
+            "تأكيد", "تاكيد", "موافق", "قبول", "accept", "select", "اختيار"
+        ));
     }
 
     private boolean containsToken(String text, String csv) {
@@ -371,9 +460,39 @@ public class NatanAccessibilityService extends AccessibilityService {
     }
 
     private int[] extractTimePair(String text) {
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?<!\\d)([01]?\\d|2[0-3])[:.]([0-5]\\d)\\s*(?:-|–|—|to|الى|إلى)\\s*([01]?\\d|2[0-3])[:.]([0-5]\\d)(?!\\d)").matcher(text);
-        if (!m.find()) return null;
-        return new int[]{Integer.parseInt(m.group(1))*60 + Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3))*60 + Integer.parseInt(m.group(4))};
+        java.util.regex.Pattern p = java.util.regex.Pattern.compile(
+            "([01]?\\d|2[0-3])[:.]([0-5]\\d)\\s*(am|pm|ص|م)?\\s*(?:-|–|—|to|الى|إلى)\\s*([01]?\\d|2[0-3])[:.]([0-5]\\d)\\s*(am|pm|ص|م)?",
+            java.util.regex.Pattern.CASE_INSENSITIVE
+        );
+        java.util.regex.Matcher m = p.matcher(text);
+        if (m.find()) {
+            int h1 = Integer.parseInt(m.group(1));
+            int min1 = Integer.parseInt(m.group(2));
+            String mod1 = m.group(3);
+            int h2 = Integer.parseInt(m.group(4));
+            int min2 = Integer.parseInt(m.group(5));
+            String mod2 = m.group(6);
+
+            if (mod1 != null) {
+                String m1 = mod1.toLowerCase(Locale.ROOT);
+                if ((m1.equals("pm") || m1.equals("م")) && h1 < 12) h1 += 12;
+                else if ((m1.equals("am") || m1.equals("ص")) && h1 == 12) h1 = 0;
+            }
+            if (mod2 != null) {
+                String m2 = mod2.toLowerCase(Locale.ROOT);
+                if ((m2.equals("pm") || m2.equals("م")) && h2 < 12) h2 += 12;
+                else if ((m2.equals("am") || m2.equals("ص")) && h2 == 12) h2 = 0;
+            } else if (mod1 != null && h2 < h1 && h2 < 12) {
+                h2 += 12;
+            }
+            return new int[]{h1 * 60 + min1, h2 * 60 + min2};
+        }
+
+        java.util.regex.Matcher m2 = java.util.regex.Pattern.compile("(?<!\\d)([01]?\\d|2[0-3])[:.]([0-5]\\d)\\s*(?:-|–|—|to|الى|إلى)\\s*([01]?\\d|2[0-3])[:.]([0-5]\\d)(?!\\d)").matcher(text);
+        if (m2.find()) {
+            return new int[]{Integer.parseInt(m2.group(1))*60 + Integer.parseInt(m2.group(2)), Integer.parseInt(m2.group(3))*60 + Integer.parseInt(m2.group(4))};
+        }
+        return null;
     }
 
     private double durationHours(int start, int end) {
@@ -402,7 +521,7 @@ public class NatanAccessibilityService extends AccessibilityService {
             for (String label : labels) {
                 if (text.equals(normalize(label)) || text.contains(normalize(label))) {
                     AccessibilityNodeInfo clickable = findClickableAncestor(node);
-                    if (clickable != null) return clickable;
+                    return clickable != null ? clickable : node;
                 }
             }
         }
@@ -440,7 +559,18 @@ public class NatanAccessibilityService extends AccessibilityService {
             Rect r = new Rect();
             node.getBoundsInScreen(r);
             if (!r.isEmpty()) {
-                clicked = node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                if (android.os.Build.VERSION.SDK_INT >= 24) {
+                    Path clickPath = new Path();
+                    clickPath.moveTo(r.centerX(), r.centerY());
+                    GestureDescription.StrokeDescription clickStroke =
+                            new GestureDescription.StrokeDescription(clickPath, 0, 80);
+                    GestureDescription clickGesture = new GestureDescription.Builder()
+                            .addStroke(clickStroke)
+                            .build();
+                    clicked = dispatchGesture(clickGesture, null, null);
+                } else {
+                    clicked = node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                }
             }
         }
         return clicked;
@@ -517,8 +647,17 @@ public class NatanAccessibilityService extends AccessibilityService {
     private String normalize(String value) {
         if (value == null) return "";
         String n = Normalizer.normalize(value, Normalizer.Form.NFKC).trim().toLowerCase(Locale.ROOT);
+        // Normalize Arabic-Indic and Eastern-Arabic digits
         n = n.replace('٠','0').replace('١','1').replace('٢','2').replace('٣','3').replace('٤','4').replace('٥','5').replace('٦','6').replace('٧','7').replace('٨','8').replace('٩','9');
         n = n.replace('۰','0').replace('۱','1').replace('۲','2').replace('۳','3').replace('۴','4').replace('۵','5').replace('۶','6').replace('۷','7').replace('۸','8').replace('۹','9');
+        // Remove Arabic diacritics (tashkeel) and tatweel
+        n = n.replaceAll("[\\u064B-\\u065F\\u0670\\u0640]", "");
+        // Normalize Alef variations
+        n = n.replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا').replace('ٱ', 'ا');
+        // Normalize Ta Marbuta and Ha
+        n = n.replace('ة', 'ه');
+        // Normalize Alef Maqsura and Ya
+        n = n.replace('ى', 'ي');
         return n.replaceAll("\\s+", " ");
     }
 

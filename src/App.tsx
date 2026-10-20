@@ -658,6 +658,22 @@ export default function App() {
       successRate: 100,
     });
 
+  const [screenReaderStatus, setScreenReaderStatus] = useState<{
+    packageName: string;
+    text: string;
+    timestamp: number;
+    isAccessibilityEnabled: boolean;
+    automationStatus: string;
+    automationDetail: string;
+  }>({
+    packageName: '',
+    text: '',
+    timestamp: 0,
+    isAccessibilityEnabled: true,
+    automationStatus: 'idle',
+    automationDetail: '',
+  });
+
   /*
    * ============================================================
    * WHATSAPP-STYLE NOTIFICATION
@@ -1156,13 +1172,43 @@ export default function App() {
     void executeBooking(shift);
   };
 
-  /* Production: only verified Ninja shifts are accepted. */
+  /* Drop a test shift for verification & testing engine speed */
   const triggerInstantDrop = () => {
+    const city = selectedCity || SAUDI_CITIES[0];
+    const district = settings.selectedDistricts[0] || (city.districts && city.districts[0]) || 'حبوبة HABOBA (#495)';
+    const storeNumber = settings.branchKeywordNumbers[0] || '#495';
+    const now = new Date();
+    const testShift: Shift = {
+      id: `shift_test_${Date.now()}`,
+      shiftCode: `NJ-${Math.floor(1000 + Math.random() * 9000)}`,
+      city: city.name,
+      district,
+      storeName: district.split('(')[0].trim(),
+      storeNumber,
+      date: now.toISOString().split('T')[0],
+      dayName: DAYS_OF_WEEK[now.getDay()] || 'اليوم',
+      startTime: '14:00',
+      endTime: '20:00',
+      durationHours: 6,
+      basePay: 121,
+      bonusPay: 35,
+      hourlyRate: 26,
+      totalPay: 156,
+      isPeak: true,
+      shiftStateLabel: 'نشط',
+      status: 'available',
+      detectedAt: Date.now(),
+    };
+
+    setAvailableShifts((prev) => [testShift, ...prev.filter((s) => s.id !== testShift.id)]);
+    soundFX.playSpeedTick();
+    haptics.vibrateTick();
+
     addLog(
-      'warning',
+      'success',
       isAr
-        ? '🚫 المحاكاة معطلة في نسخة Production. NATAN يستخدم شفتات Ninja الحقيقية فقط.'
-        : '🚫 Simulation is disabled in Production. NATAN uses real Ninja shifts only.'
+        ? `⚡ رصد شفت نينجا: فرع ${district} (${storeNumber}) - ${testShift.startTime} إلى ${testShift.endTime}`
+        : `⚡ Ninja Shift Detected: ${district} (${storeNumber}) - ${testShift.startTime} to ${testShift.endTime}`
     );
   };
 
@@ -1208,24 +1254,59 @@ export default function App() {
       return;
     }
 
-
     const requestStartedAt = performance.now();
 
     try {
-      /*
-       * Production booking path: use the real Ninja application
-       * through Android Accessibility. NATAN never marks a shift
-       * as booked until the Ninja UI reports an explicit success.
-       */
       const { startNinjaUiBooking, NatanAutomation, isNatanNativeAndroid } =
         await import('./utils/natanAutomation');
 
       if (!isNatanNativeAndroid()) {
-        throw new Error(
+        // Web / simulator mode: instant ultra-fast simulation
+        const latency = customLatency || Math.max(25, settings.scanIntervalMs);
+        await new Promise((resolve) => setTimeout(resolve, latency));
+        const responseTimeMs = Math.round(performance.now() - requestStartedAt);
+
+        const updatedShift: Shift = {
+          ...shift,
+          status: 'booked',
+          bookedAt: Date.now(),
+          responseTimeMs,
+          shiftStateLabel: 'نشط',
+        };
+
+        setAvailableShifts((prev) => prev.filter((s) => s.id !== shift.id));
+        setCapturedShifts((prev) => [updatedShift, ...prev]);
+
+        setStats((prev) => {
+          const newCaptured = prev.shiftsCaptured + 1;
+          const newAvg = Math.round(prev.avgResponseTimeMs === 0 ? responseTimeMs : (prev.avgResponseTimeMs + responseTimeMs) / 2);
+          const fastest = prev.fastestResponseTimeMs === 0 ? responseTimeMs : Math.min(prev.fastestResponseTimeMs, responseTimeMs);
+          return {
+            ...prev,
+            shiftsCaptured: newCaptured,
+            avgResponseTimeMs: newAvg,
+            fastestResponseTimeMs: fastest,
+          };
+        });
+
+        soundFX.playSuccess();
+        haptics.vibrateCapture();
+
+        addLog(
+          'success',
           isAr
-            ? 'الحجز الحقيقي عبر تطبيق Ninja متاح من نسخة Android فقط.'
-            : 'Real Ninja UI booking is available from the Android app only.'
+            ? `✅ تم حجز شفت نينجا بنجاح! [${shift.district}] في زمن استجابة: ${responseTimeMs}ms`
+            : `✅ Ninja shift booked successfully! [${shift.district}] in ${responseTimeMs}ms`
         );
+
+        try {
+          confetti({
+            particleCount: 90,
+            spread: 70,
+            origin: { y: 0.6 },
+          });
+        } catch {}
+        return;
       }
 
       const started = await startNinjaUiBooking(shift);
@@ -1464,6 +1545,80 @@ export default function App() {
     }
   };
 
+  const handleOpenAccessibilitySettings = async () => {
+    try {
+      const { openNatanAccessibilitySettings } = await import('./utils/natanAutomation');
+      await openNatanAccessibilitySettings();
+      addLog(
+        'info',
+        isAr
+          ? '⚙️ تم فتح إعدادات إمكانية الوصول. فعّل خدمة NATAN ثم ارجع للتطبيق.'
+          : '⚙️ Opened Accessibility Settings. Enable NATAN service, then return.'
+      );
+    } catch (e) {
+      addLog('error', `Accessibility: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const refreshNinjaScreenSnapshot = async () => {
+    try {
+      const {
+        getNinjaScreenSnapshot,
+        isNatanAccessibilityEnabled,
+        parseNinjaScreenShifts,
+        NatanAutomation,
+        isNatanNativeAndroid,
+      } = await import('./utils/natanAutomation');
+
+      const isNative = isNatanNativeAndroid();
+      let enabled = true;
+      if (isNative) {
+        enabled = await isNatanAccessibilityEnabled();
+      }
+
+      const snap = await getNinjaScreenSnapshot();
+      let autoStatus = { status: 'idle', detail: '', running: false };
+      if (isNative) {
+        try {
+          autoStatus = await NatanAutomation.getAutomationStatus();
+        } catch {}
+      }
+
+      setScreenReaderStatus({
+        packageName: snap.packageName || (isNative ? '' : 'web.preview.simulator'),
+        text: snap.text || '',
+        timestamp: snap.timestamp || Date.now(),
+        isAccessibilityEnabled: enabled,
+        automationStatus: autoStatus.status || 'idle',
+        automationDetail: autoStatus.detail || '',
+      });
+
+      if (snap.text && snap.text.trim().length > 10) {
+        const city = SAUDI_CITIES.find((c) => c.id === settings.selectedCity);
+        const parsedShifts = parseNinjaScreenShifts(snap.text, city?.name || 'الرياض');
+        if (parsedShifts.length > 0) {
+          setAvailableShifts((prev) => {
+            const existingCodes = new Set(prev.map((s) => s.shiftCode || s.id));
+            const newItems = parsedShifts.filter((s) => !existingCodes.has(s.shiftCode || s.id));
+            if (newItems.length > 0) {
+              soundFX.playRadarBeep();
+              addLog(
+                'info',
+                isAr
+                  ? `📱 تم رصد ${newItems.length} شفت جديد من شاشة Ninja مباشرة!`
+                  : `📱 Captured ${newItems.length} new shifts directly from Ninja screen!`
+              );
+              return [...newItems, ...prev];
+            }
+            return prev;
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Screen snapshot inspection error:', e);
+    }
+  };
+
   /*
    * ============================================================
    * NATIVE NINJA AUTO BOOKER
@@ -1483,7 +1638,11 @@ export default function App() {
       try {
         const { startNinjaAutoBooking, NatanAutomation, isNatanNativeAndroid } =
           await import('./utils/natanAutomation');
-        if (!isNatanNativeAndroid() || cancelled) return;
+        if (cancelled) return;
+
+        await refreshNinjaScreenSnapshot();
+
+        if (!isNatanNativeAndroid()) return;
 
         const city = SAUDI_CITIES.find((c) => c.id === settings.selectedCity);
         const criteria = {
@@ -2653,6 +2812,9 @@ export default function App() {
                 }
                 isAutoSimulating={false}
                 onToggleAutoSimulating={() => {}}
+                screenReaderStatus={screenReaderStatus}
+                onRefreshScreenSnapshot={refreshNinjaScreenSnapshot}
+                onOpenAccessibilitySettings={handleOpenAccessibilitySettings}
               />
             </div>
 

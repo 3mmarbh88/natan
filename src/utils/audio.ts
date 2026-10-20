@@ -74,6 +74,10 @@ class SoundFX {
     this.playSpeedTick();
   }
 
+  playRadarBeep() {
+    this.playSpeedTick();
+  }
+
   playAlert() {
     try {
       this.initCtx();

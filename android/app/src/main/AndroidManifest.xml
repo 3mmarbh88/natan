@@ -14,9 +14,29 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.front" android:required="false" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <queries>
+        <package android:name="com.ananinja.driver" />
+        <package android:name="com.ananinja.rider" />
+        <package android:name="com.ananinja.courier" />
+        <package android:name="com.ananinja.captain" />
+        <package android:name="com.ananinja" />
+        <package android:name="com.ninja.driver" />
+        <package android:name="com.ninja.captain" />
+        <package android:name="com.ninja.courier" />
+        <package android:name="com.ninja.delivery" />
+        <package android:name="com.ninja.ksa" />
+        <package android:name="com.ninja.driver.ksa" />
+        <package android:name="com.ninja.ksa.driver" />
+        <package android:name="sa.ninja.driver" />
+        <package android:name="sa.ninja" />
+        <package android:name="com.ninja.app" />
         <package android:name="com.mehedydev.nova" />
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+        </intent>
     </queries>
 
     <application
