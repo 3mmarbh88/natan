@@ -83,6 +83,7 @@ public class NatanAccessibilityService extends AccessibilityService {
     private String lastActionKey = "";
     private int scrolls = 0;
     private long lastRefreshAt = 0L;
+    private long lastInspectionStartedAt = 0L;
     private String lastReportedStatus = "";
     private boolean watchdogStarted = false;
 
@@ -173,6 +174,11 @@ public class NatanAccessibilityService extends AccessibilityService {
 
     private void inspectAndAct() {
         if (!isRunning()) return;
+        // Accessibility events and the watchdog can arrive close together.
+        // Coalesce near-duplicate inspections to keep the main thread responsive.
+        long inspectionNow = System.currentTimeMillis();
+        if (inspectionNow - lastInspectionStartedAt < 180L) return;
+        lastInspectionStartedAt = inspectionNow;
         ensureWatchdogStarted();
         AccessibilityNodeInfo root = findNinjaRootNode();
         if (root == null) {
@@ -197,6 +203,13 @@ public class NatanAccessibilityService extends AccessibilityService {
             lastSnapshotTimestamp = System.currentTimeMillis();
         }
         String lower = normalize(allText);
+
+        // Never try to automate credentials. Ask the user to sign in normally,
+        // then resume navigation and monitoring when the shifts UI appears.
+        if (containsAny(lower, Arrays.asList("log in", "login", "sign in", "تسجيل الدخول", "سجل الدخول", "تسجيل دخول"))) {
+            reportStatusIfChanged("login_required", "Sign in to Ninja normally, then keep Ninja open; NATAN will resume monitoring.");
+            return;
+        }
 
         if (containsAny(lower, Arrays.asList("shift booked successfully", "booking confirmed", "successfully booked", "تم حجز المناوبة بنجاح", "تم تأكيد الحجز", "اكتمل الحجز بنجاح"))) {
             setStatus("success", "Ninja confirmed the shift booking");
@@ -232,8 +245,14 @@ public class NatanAccessibilityService extends AccessibilityService {
             }
         }
 
-        if (containsAny(lower, Arrays.asList("home", "orders", "my shifts", "دوامي", "الطلبات")) && !containsAny(lower, Arrays.asList("book shift", "حجز دوام", "حجز فترة الدوام"))) {
-            AccessibilityNodeInfo shifts = findClickableByLabels(root, Arrays.asList("shifts", "shift", "الوردية", "الورديات", "وردية", "الدوام", "الشفتات"));
+        boolean alreadyOnShiftScreen = containsAny(lower, Arrays.asList(
+                "book shift", "available shifts", "shifts available", "shift details",
+                "حجز دوام", "حجز فترة الدوام", "المناوبات المتاحة", "الورديات المتاحة",
+                "تفاصيل المناوبة", "احجز دوام"));
+        if (!alreadyOnShiftScreen) {
+            AccessibilityNodeInfo shifts = findClickableByLabels(root, Arrays.asList(
+                    "shifts", "shift", "available shifts", "my shifts",
+                    "الوردية", "الورديات", "وردية", "الدوام", "الشفتات", "المناوبات"));
             if (shifts != null && performClick(shifts, "open-shifts")) {
                 setStatus("opening_shifts", "Opening Ninja shifts screen");
                 return;
