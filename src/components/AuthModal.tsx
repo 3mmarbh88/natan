@@ -1161,6 +1161,11 @@ export default function AuthModal({
           <h1 className="text-2xl sm:text-3xl font-black tracking-wider text-white">
             NATAN
           </h1>
+
+          <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-300 text-xs sm:text-sm font-black shadow-sm">
+            <ShieldCheck className="w-4 h-4 text-purple-400" />
+            <span>{isAr ? 'بوابة الدخول الآمن' : 'Secure Entry Gateway'}</span>
+          </div>
         </div>
 
         <div className="p-4 sm:p-6">

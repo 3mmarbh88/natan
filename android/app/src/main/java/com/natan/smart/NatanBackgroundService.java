@@ -36,7 +36,7 @@ public class NatanBackgroundService extends Service {
     private final Runnable publisher = new Runnable() {
         @Override public void run() {
             publishSelectedLocation();
-            handler.postDelayed(this, 2000L);
+            handler.postDelayed(this, 1000L);
         }
     };
 
@@ -104,7 +104,10 @@ public class NatanBackgroundService extends Service {
         Location l = new Location(LocationManager.GPS_PROVIDER);
         l.setLatitude(lat);
         l.setLongitude(lng);
-        l.setAccuracy(3f);
+        l.setAccuracy(2.0f);
+        l.setAltitude(620.0);
+        l.setSpeed(0.0f);
+        l.setBearing(0.0f);
         l.setTime(System.currentTimeMillis());
         l.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
         try {
@@ -114,14 +117,17 @@ public class NatanBackgroundService extends Service {
                 Location netL = new Location(LocationManager.NETWORK_PROVIDER);
                 netL.setLatitude(lat);
                 netL.setLongitude(lng);
-                netL.setAccuracy(3f);
+                netL.setAccuracy(2.0f);
+                netL.setAltitude(620.0);
+                netL.setSpeed(0.0f);
+                netL.setBearing(0.0f);
                 netL.setTime(System.currentTimeMillis());
                 netL.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());
                 manager().setTestProviderLocation(LocationManager.NETWORK_PROVIDER, netL);
             } catch (Exception ignored) {}
 
             p.edit().putString("mock_status", "active")
-                    .putString("mock_detail", "Android mock location is active for the selected point.")
+                    .putString("mock_detail", "Android GPS broadcast active at selected coordinates.")
                     .putLong("mock_last_update", System.currentTimeMillis()).apply();
         } catch (SecurityException e) {
             p.edit().putBoolean(MOCK_ACTIVE, false).putString("mock_status", "mock_app_required").apply();

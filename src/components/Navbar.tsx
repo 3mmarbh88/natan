@@ -27,7 +27,6 @@ interface NavbarProps {
 
   onOpenCodeModal: () => void;
   onOpenAiAdvisor: () => void;
-  onTriggerTestDrop: () => void;
 
   onOpenWhatsApp?: () => void;
 
@@ -45,7 +44,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onUpdateSettings,
   onOpenCodeModal,
   onOpenAiAdvisor,
-  onTriggerTestDrop,
   onOpenWhatsApp,
   totalCaptured,
   authSession,
@@ -555,17 +553,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className={`text-[10px] font-black px-1 rounded ${settings.autoBooking ? 'bg-emerald-500/30 text-emerald-200' : 'bg-slate-700 text-slate-300'}`}>
               {settings.autoBooking ? (isAr ? 'ON' : 'ON') : (isAr ? 'OFF' : 'OFF')}
             </span>
-          </button>
-
-          {/* TEST FLASH DROP */}
-          <button
-            type="button"
-            onClick={onTriggerTestDrop}
-            title={t.flashShift}
-            className="flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3.5 py-2 min-h-[42px] rounded-xl bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-[11px] sm:text-xs font-black transition-all shadow-md shadow-purple-500/25 cursor-pointer active:scale-95"
-          >
-            <Zap className="w-3.5 h-3.5 fill-white shrink-0" />
-            <span className="truncate">{t.flashShift}</span>
           </button>
 
           {/* AI ADVISOR */}

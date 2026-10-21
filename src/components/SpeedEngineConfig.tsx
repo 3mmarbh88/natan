@@ -1,5 +1,5 @@
-import React from 'react';
-import { Gauge, Zap, RefreshCw, MousePointerClick, ShieldAlert, Volume2, BatteryCharging, CheckCircle2, Server, ArrowRight, Smartphone, Sliders, ShieldCheck, Vibrate } from 'lucide-react';
+import React, { useState } from 'react';
+import { Gauge, Zap, RefreshCw, MousePointerClick, ShieldAlert, Volume2, BatteryCharging, CheckCircle2, Server, ArrowRight, Smartphone, Sliders, ShieldCheck, Vibrate, ExternalLink, Settings as SettingsIcon } from 'lucide-react';
 import { BookingSettings } from '../types';
 import { haptics } from '../utils/haptics';
 import { soundFX } from '../utils/audio';
@@ -17,6 +17,29 @@ export const SpeedEngineConfig: React.FC<SpeedEngineConfigProps> = ({
   onNavigateToApiBot,
 }) => {
   const { t, isAr } = useLanguage();
+  const [batteryNotice, setBatteryNotice] = useState<string | null>(null);
+  const [isOpeningBattery, setIsOpeningBattery] = useState(false);
+
+  const handleOpenBatterySettings = async () => {
+    setIsOpeningBattery(true);
+    haptics.vibrateTick();
+    soundFX.playSpeedTick();
+    try {
+      const { openNatanBatterySettings, isNatanNativeAndroid } = await import('../utils/natanAutomation');
+      if (isNatanNativeAndroid()) {
+        await openNatanBatterySettings();
+        setBatteryNotice(isAr ? '⚡ تم فتح إعدادات تحسين البطارية في هاتفك! اختر "غير مقيّد"' : 'Opened Battery Settings on Android! Select "Unrestricted"');
+      } else {
+        // Fallback for browser/preview
+        setBatteryNotice(isAr ? '📱 على هاتف الأندرويد: يفتح شاشة تحسين البطارية فوراً لتعطيل التقييد' : 'On Android device: Opens battery settings directly to disable power restrictions');
+      }
+    } catch (e) {
+      setBatteryNotice(isAr ? '⚠️ تعذر فتح شاشة البطارية تلقائياً؛ يرجى فتح الإعدادات ⇦ التطبيقات ⇦ NATAN ⇦ البطارية ⇦ غير مقيّد' : 'Go to Settings > Apps > NATAN > Battery > Unrestricted');
+    } finally {
+      setTimeout(() => setIsOpeningBattery(false), 800);
+      setTimeout(() => setBatteryNotice(null), 6000);
+    }
+  };
   return (
     <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800 rounded-2xl p-3.5 sm:p-5 lg:p-6 shadow-xl space-y-4 sm:space-y-6">
       {/* Header */}
@@ -90,7 +113,7 @@ export const SpeedEngineConfig: React.FC<SpeedEngineConfigProps> = ({
               <span className="font-black text-xs sm:text-sm text-white">{isAr ? '🛡️ متخفي (Stealth)' : '🛡️ Stealth'}</span>
               <span className="text-[11px] font-mono font-bold bg-emerald-500/25 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30">250ms</span>
             </div>
-            <p className="text-[11px] sm:text-xs text-slate-400">{isAr ? 'محاكاة سلوك بشري كامل بنقرات عشوائية طبيعية.' : 'Full human-like simulation with organic randomized taps.'}</p>
+            <p className="text-[11px] sm:text-xs text-slate-400">{isAr ? 'نظام نقر ذكي بتباين زمني طبيعي لحماية الحساب من الكشف.' : 'Smart click timing variation to protect account safety.'}</p>
           </button>
         </div>
       </div>
@@ -349,23 +372,21 @@ export const SpeedEngineConfig: React.FC<SpeedEngineConfigProps> = ({
               <p>• <strong>سامسونج:</strong> الضبط ⇦ التطبيقات ⇦ NATAN ⇦ البطارية ⇦ غير مقيّد</p>
               <p>• <strong>شاومي / ريدمي:</strong> إعدادات التطبيق ⇦ موفر البطارية ⇦ بلا قيود</p>
             </div>
+            {batteryNotice && (
+              <div className="p-2 rounded-lg bg-amber-500/15 border border-amber-500/30 text-[10px] text-amber-200 leading-tight animate-fadeIn">
+                {batteryNotice}
+              </div>
+            )}
+
             <button
               type="button"
-              onClick={async () => {
-                try {
-                  const { openNatanBatterySettings, isNatanNativeAndroid } = await import('../utils/natanAutomation');
-                  if (isNatanNativeAndroid()) {
-                    await openNatanBatterySettings();
-                  } else {
-                    alert(isAr ? 'على هاتفك الأندرويد: افتح الإعدادات ⇦ التطبيقات ⇦ NATAN ⇦ البطارية ⇦ اختر غير مقيد' : 'On Android: Go to Settings > Apps > NATAN > Battery > Select Unrestricted');
-                  }
-                } catch (e) {
-                  alert(isAr ? 'توجه إلى إعدادات الهاتف ⇦ التطبيقات ⇦ NATAN ⇦ البطارية ⇦ غير مقيّد' : 'Go to Settings > Apps > NATAN > Battery > Unrestricted');
-                }
-              }}
-              className="w-full mt-1 py-1.5 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[11px] font-bold transition-all text-center cursor-pointer"
+              onClick={handleOpenBatterySettings}
+              disabled={isOpeningBattery}
+              className="w-full mt-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500/25 to-amber-600/25 hover:from-amber-500/35 hover:to-amber-600/35 active:scale-95 text-amber-200 border border-amber-500/40 text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
             >
-              {isAr ? '⚙️ فتح إعدادات بطارية الهاتف' : '⚙️ Open Android Battery Settings'}
+              <SettingsIcon className={`w-3.5 h-3.5 text-amber-300 ${isOpeningBattery ? 'animate-spin' : ''}`} />
+              <span>{isOpeningBattery ? (isAr ? 'جاري الفتح...' : 'Opening...') : (isAr ? '⚙️ فتح إعدادات بطارية الهاتف' : '⚙️ Open Android Battery Settings')}</span>
+              <ExternalLink className="w-3 h-3 text-amber-300 opacity-80" />
             </button>
           </div>
 
@@ -404,10 +425,10 @@ export const SpeedEngineConfig: React.FC<SpeedEngineConfigProps> = ({
             <p className="text-[11px] text-slate-300 leading-relaxed">
               {isAr ? (
                 <>
-                  تم تصميم المحرك بخاصية <strong>Human Jitter</strong> لتوليد إحداثيات نقر عشوائية طفيفة محاكية لحركة أصابع الإنسان الحقيقية.
+                  تم تصميم المحرك بخاصية <strong>Human Jitter</strong> لتوليد فوارق زمنية وإحداثيات نقر ذكية تضمن حماية الحساب من أي كشف أو حظر.
                 </>
               ) : (
-                'Human Jitter randomizes click coordinates by a few pixels so clicks appear organic.'
+                'Human Jitter randomizes click coordinates by a few pixels so clicks appear organic and secure.'
               )}
             </p>
             <div className="text-[10px] text-slate-400 space-y-1 bg-slate-950/60 p-2 rounded-lg border border-slate-800">

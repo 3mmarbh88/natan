@@ -13,11 +13,8 @@ interface SimulatorRadarProps {
   availableShifts: Shift[];
   capturedShifts: Shift[];
   stats: PerformanceStats;
-  onTriggerInstantDrop: () => void;
   onBookShiftManually: (shiftId: string) => void;
   onDeleteShift?: (shiftId: string) => void;
-  isAutoSimulating: boolean;
-  onToggleAutoSimulating: () => void;
   screenReaderStatus?: {
     packageName: string;
     text: string;
@@ -36,11 +33,8 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
   availableShifts,
   capturedShifts,
   stats,
-  onTriggerInstantDrop,
   onBookShiftManually,
   onDeleteShift,
-  isAutoSimulating,
-  onToggleAutoSimulating,
   screenReaderStatus,
   onRefreshScreenSnapshot,
   onOpenAccessibilitySettings,
@@ -49,10 +43,6 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
   const { t, isAr } = useLanguage();
   const [modalShift, setModalShift] = useState<Shift | null>(null);
   const [isRefreshingScreen, setIsRefreshingScreen] = useState(false);
-
-  const handleTestDrop = () => {
-    onTriggerInstantDrop();
-  };
 
   const handleRefreshScreen = async () => {
     if (!onRefreshScreenSnapshot) return;
@@ -122,26 +112,19 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
         </div>
 
         {/* Action Buttons: Flash Shift & Screen Reader Check */}
+        {/* Action Buttons: Screen Reader Check */}
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
           {onRefreshScreenSnapshot && (
             <button
               onClick={handleRefreshScreen}
               disabled={isRefreshingScreen}
-              className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-1.5 transition-all shadow-sm"
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-1.5 transition-all shadow-sm"
               title={isAr ? 'فحص شاشة Ninja الآن' : 'Inspect Ninja Screen Now'}
             >
               <RefreshCw className={`w-3.5 h-3.5 text-sky-400 ${isRefreshingScreen ? 'animate-spin' : ''}`} />
-              <span>{isAr ? 'قراءة الشاشة الآن' : 'Scan Screen'}</span>
+              <span>{isAr ? 'قراءة شاشة نينجا الآن' : 'Scan Screen'}</span>
             </button>
           )}
-
-          <button
-            onClick={handleTestDrop}
-            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-purple-500/20 hover:from-amber-500/30 hover:to-purple-500/30 active:scale-95 text-amber-300 text-xs font-black border border-amber-500/40 flex items-center gap-1.5 transition-all shadow-sm shadow-amber-500/10"
-          >
-            <Zap className="w-3.5 h-3.5 fill-current text-amber-400" />
-            <span>{isAr ? 'شفت تجريبي (فلاشي)' : 'Flash Shift'}</span>
-          </button>
         </div>
       </div>
 
@@ -164,34 +147,65 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {screenReaderStatus?.isAccessibilityEnabled === false ? (
-              <button
-                onClick={onOpenAccessibilitySettings}
-                className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[11px] font-bold flex items-center gap-1 hover:bg-rose-500/30 transition-all"
-              >
-                <SettingsIcon className="w-3 h-3 text-rose-400" />
-                <span>{isAr ? '⚙️ تفعيل الخدمة في الإعدادات' : 'Enable in Settings'}</span>
-              </button>
-            ) : (
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                <span>{isAr ? 'خدمة الوصول مفعلة' : 'Accessibility Active'}</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Clickable Accessibility Service Button / Badge */}
+            <button
+              type="button"
+              onClick={onOpenAccessibilitySettings}
+              title={isAr ? 'اضغط لفتح إعدادات إمكانية الوصول في الهاتف وتفعيل الخدمة' : 'Tap to open Android Accessibility settings'}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 shadow-md border ${
+                screenReaderStatus?.isAccessibilityEnabled
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30 ring-1 ring-emerald-500/30'
+                  : 'bg-rose-500/25 text-rose-200 border-rose-500/50 hover:bg-rose-500/35 ring-2 ring-rose-500/30 animate-pulse'
+              }`}
+            >
+              {screenReaderStatus?.isAccessibilityEnabled ? (
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <SettingsIcon className="w-3.5 h-3.5 text-rose-300 animate-spin" />
+              )}
+              <span>
+                {screenReaderStatus?.isAccessibilityEnabled
+                  ? (isAr ? 'خدمة الوصول (مفعلة) ⚙️' : 'Accessibility (Active) ⚙️')
+                  : (isAr ? 'خدمة الوصول: اضغط للتفعيل ⚙️' : 'Accessibility: Tap to Enable ⚙️')}
               </span>
-            )}
+              <ExternalLink className="w-3 h-3 opacity-70" />
+            </button>
 
             {screenReaderStatus?.packageName ? (
-              <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-[10px] font-mono">
+              <span className="px-2.5 py-1 rounded-xl bg-slate-800 text-slate-300 border border-slate-700 text-[11px] font-mono">
                 {screenReaderStatus.packageName.includes('ninja')
                   ? `🟢 ${screenReaderStatus.packageName}`
                   : `🟡 ${screenReaderStatus.packageName}`}
               </span>
             ) : (
-              <span className="px-2 py-0.5 rounded-full bg-slate-800/80 text-slate-400 border border-slate-700 text-[10px]">
+              <span className="px-2.5 py-1 rounded-xl bg-slate-800/80 text-slate-400 border border-slate-700 text-[10px]">
                 {isAr ? 'بانتظار ظهور Ninja' : 'Waiting for Ninja'}
               </span>
             )}
           </div>
+        </div>
+
+        {/* Dedicated Quick Action Banner to open phone Accessibility settings anytime */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-900/90 border border-slate-800/80">
+          <div className="flex items-center gap-2 text-[11px] text-slate-300">
+            <Smartphone className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+            <span>
+              {isAr
+                ? 'إعدادات الوصول تسمح للبرنامج بقراءة الشاشة ونقر زر "حجز فترة الدوام" فوراً.'
+                : 'Accessibility allows NATAN to inspect shift cards and click "Book Shift" instantly.'}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={onOpenAccessibilitySettings}
+            className="px-3 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 active:scale-95 text-sky-300 border border-sky-500/30 text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0"
+          >
+            <SettingsIcon className="w-3.5 h-3.5 text-sky-400" />
+            <span>{isAr ? 'فتح إعدادات خدمة الوصول بالهاتف' : 'Open Accessibility Settings'}</span>
+            <ExternalLink className="w-3 h-3 text-sky-400 opacity-80" />
+          </button>
         </div>
 
         {/* Live Snapshot details preview if text captured */}
@@ -399,23 +413,29 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
         </div>
 
         {availableShifts.length === 0 ? (
-          <div className="p-6 sm:p-8 text-center rounded-2xl bg-slate-800/20 border border-dashed border-slate-800 space-y-3">
-            <Radio className="w-8 h-8 text-purple-400/80 mx-auto animate-pulse" />
-            <p className="text-xs sm:text-sm font-bold text-slate-200">{t.noShiftsAvailable}</p>
+          <div className="p-6 sm:p-8 text-center rounded-2xl bg-slate-900/40 border border-dashed border-slate-800 space-y-3">
+            <Radio className="w-8 h-8 text-emerald-400 mx-auto animate-pulse" />
+            <p className="text-xs sm:text-sm font-bold text-slate-200">
+              {isAr ? 'الرادار في وضع المراقبة الحية لشاشة نينجا' : 'Radar Actively Watching Ninja Screen'}
+            </p>
             <p className="text-[11px] text-slate-400 max-w-md mx-auto leading-relaxed">
               {isAr
-                ? '⚡ ناتان يراقب شاشة تطبيق Ninja عبر خدمة إمكانية الوصول. عند نزول أي شفت في Ninja سيقوم ناتان بقراءته وحجزه فوراً. يمكنك الضغط على "تجربة نزول شفت الآن" للتحقق من سرعة الحجز.'
-                : '⚡ NATAN is monitoring Ninja via Accessibility. Any dropped shift in Ninja will be read and booked immediately. Tap "Test Drop Shift Now" to verify engine speed.'}
+                ? '⚡ ناتان متصل بشاشة تطبيق نينجا الحقيقية عبر خدمة إمكانية الوصول. بمجرد قيام نينجا بطرح شفتات جديدة تطابق شروطك، سيقوم ناتان باقتناصها والضغط على "حجز فترة الدوام" فوراً وتأكيدها.'
+                : '⚡ NATAN is connected to the real Ninja app via Android Accessibility. The instant Ninja drops a shift matching your criteria, NATAN will catch it and click "Book Shift" immediately.'}
             </p>
-            <div className="pt-2 flex justify-center gap-2">
-              <button
-                onClick={handleTestDrop}
-                className="px-4 py-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-black flex items-center gap-2 hover:bg-amber-500/30 transition-all active:scale-95 shadow-sm"
-              >
-                <Zap className="w-3.5 h-3.5 fill-current text-amber-400" />
-                <span>{isAr ? 'تجربة نزول شفت الآن (فلاشي)' : 'Test Drop Shift Now'}</span>
-              </button>
-            </div>
+            {onRefreshScreenSnapshot && (
+              <div className="pt-2 flex justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleRefreshScreen}
+                  disabled={isRefreshingScreen}
+                  className="px-4 py-2 rounded-xl bg-sky-500/15 text-sky-300 border border-sky-500/40 text-xs font-black flex items-center gap-2 hover:bg-sky-500/25 transition-all active:scale-95 shadow-sm cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-sky-400 ${isRefreshingScreen ? 'animate-spin' : ''}`} />
+                  <span>{isAr ? 'قراءة شاشة نينجا الآن' : 'Inspect Ninja Screen Now'}</span>
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-3">

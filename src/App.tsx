@@ -1174,46 +1174,6 @@ export default function App() {
     void executeBooking(shift);
   };
 
-  /* Drop a test shift for verification & testing engine speed */
-  const triggerInstantDrop = () => {
-    const city = selectedCity || SAUDI_CITIES[0];
-    const district = settings.selectedDistricts[0] || (city.districts && city.districts[0]) || 'حبوبة HABOBA (#495)';
-    const storeNumber = settings.branchKeywordNumbers[0] || '#495';
-    const now = new Date();
-    const testShift: Shift = {
-      id: `shift_test_${Date.now()}`,
-      shiftCode: `NJ-${Math.floor(1000 + Math.random() * 9000)}`,
-      city: city.name,
-      district,
-      storeName: district.split('(')[0].trim(),
-      storeNumber,
-      date: now.toISOString().split('T')[0],
-      dayName: DAYS_OF_WEEK[now.getDay()] || 'اليوم',
-      startTime: '14:00',
-      endTime: '20:00',
-      durationHours: 6,
-      basePay: 121,
-      bonusPay: 35,
-      hourlyRate: 26,
-      totalPay: 156,
-      isPeak: true,
-      shiftStateLabel: 'نشط',
-      status: 'available',
-      detectedAt: Date.now(),
-    };
-
-    setAvailableShifts((prev) => [testShift, ...prev.filter((s) => s.id !== testShift.id)]);
-    soundFX.playSpeedTick();
-    haptics.vibrateTick();
-
-    addLog(
-      'success',
-      isAr
-        ? `⚡ رصد شفت نينجا: فرع ${district} (${storeNumber}) - ${testShift.startTime} إلى ${testShift.endTime}`
-        : `⚡ Ninja Shift Detected: ${district} (${storeNumber}) - ${testShift.startTime} to ${testShift.endTime}`
-    );
-  };
-
   /*
    * ============================================================
    * PROTECTED BOOKING
@@ -1549,14 +1509,23 @@ export default function App() {
 
   const handleOpenAccessibilitySettings = async () => {
     try {
-      const { openNatanAccessibilitySettings } = await import('./utils/natanAutomation');
-      await openNatanAccessibilitySettings();
-      addLog(
-        'info',
-        isAr
-          ? '⚙️ تم فتح إعدادات إمكانية الوصول. فعّل خدمة NATAN ثم ارجع للتطبيق.'
-          : '⚙️ Opened Accessibility Settings. Enable NATAN service, then return.'
-      );
+      const { openNatanAccessibilitySettings, isNatanNativeAndroid } = await import('./utils/natanAutomation');
+      if (isNatanNativeAndroid()) {
+        await openNatanAccessibilitySettings();
+        addLog(
+          'accessibility',
+          isAr
+            ? '⚙️ تم فتح إعدادات إمكانية الوصول في الهاتف. فعّل خدمة NATAN ثم ارجع للتطبيق.'
+            : '⚙️ Opened Accessibility Settings on Android. Enable NATAN service, then return.'
+        );
+      } else {
+        addLog(
+          'accessibility',
+          isAr
+            ? '📱 على هاتف الأندرويد: يفتح شاشة إمكانية الوصول مباشرة لتفعيل NATAN Smart Automation.'
+            : '📱 On Android: Directly opens Accessibility Settings to enable NATAN Smart Automation.'
+        );
+      }
     } catch (e) {
       addLog('error', `Accessibility: ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -2421,9 +2390,6 @@ export default function App() {
             true
           )
         }
-        onTriggerTestDrop={
-          triggerInstantDrop
-        }
         totalCaptured={
           capturedShifts.length
         }
@@ -2808,15 +2774,12 @@ export default function App() {
                 availableShifts={availableShifts}
                 capturedShifts={capturedShifts}
                 stats={stats}
-                onTriggerInstantDrop={triggerInstantDrop}
                 onBookShiftManually={bookShiftManually}
                 onDeleteShift={(shiftId) =>
                   setAvailableShifts((prev) =>
                     prev.filter((s) => s.id !== shiftId)
                   )
                 }
-                isAutoSimulating={false}
-                onToggleAutoSimulating={() => {}}
                 screenReaderStatus={screenReaderStatus}
                 onRefreshScreenSnapshot={refreshNinjaScreenSnapshot}
                 onOpenAccessibilitySettings={handleOpenAccessibilitySettings}
@@ -3207,7 +3170,7 @@ export default function App() {
                       </div>
 
                       <div className="mt-3 pt-3 border-t border-slate-700/60 flex items-center justify-between text-[11px]">
-                        <span className="text-slate-400">{isAr ? 'محاكاة الموقع الرسمي:' : 'Official Mock Location:'}</span>
+                        <span className="text-slate-400">{isAr ? 'بث موقع GPS للجهاز:' : 'Device GPS Provider:'}</span>
                         <span className="text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
                           {isAr ? 'مدعوم على Android' : 'Supported on Android'}
                         </span>

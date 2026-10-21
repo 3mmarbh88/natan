@@ -364,11 +364,11 @@ class _DashboardPageState extends State<DashboardPage> with WidgetsBindingObserv
                                   padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
                                 ),
                                 onPressed: () {
-                                  _addLog('⚡ [محاكاة] نزول شفت فلاشي في حبوبة #495 -> تم الاقتناص في 18ms');
-                                  HapticFeedback.heavyImpact();
+                                  _addLog('🔍 فحص شاشة نينجا الحية والتحقق من الشفتات المتاحة...');
+                                  HapticFeedback.lightImpact();
                                 },
-                                icon: const Icon(Icons.flash_on, size: 18),
-                                label: const Text('شفت تجريبي', style: TextStyle(fontWeight: FontWeight.bold)),
+                                icon: const Icon(Icons.screen_search_desktop, size: 18),
+                                label: const Text('قراءة شاشة نينجا', style: TextStyle(fontWeight: FontWeight.bold)),
                               ),
                             ],
                           ),

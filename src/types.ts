@@ -217,7 +217,9 @@ export interface LogEntry {
     | 'success'
     | 'warning'
     | 'error'
-    | 'speed';
+    | 'speed'
+    | 'accessibility'
+    | 'gps';
 
   message: string;
 

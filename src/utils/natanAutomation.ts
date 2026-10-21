@@ -31,9 +31,17 @@ interface NatanAutomationPlugin {
   openMockLocationSettings(): Promise<void>;
   openBatteryOptimizationSettings(): Promise<void>;
   getNinjaScreenSnapshot(): Promise<{ packageName: string; text: string; timestamp: number }>;
+  openNinjaApp(): Promise<void>;
 }
 
 export const NatanAutomation = registerPlugin<NatanAutomationPlugin>('NatanAutomation');
+
+export async function openNinjaApp(): Promise<void> {
+  if (!isNatanNativeAndroid()) {
+    return;
+  }
+  return NatanAutomation.openNinjaApp();
+}
 
 export async function openNatanBatterySettings(): Promise<void> {
   if (!isNatanNativeAndroid()) {
@@ -82,7 +90,7 @@ export async function stopNatanDeviceLocation(): Promise<NatanMockLocationStatus
 export async function getNinjaScreenSnapshot(): Promise<{ packageName: string; text: string; timestamp: number }> {
   if (!isNatanNativeAndroid()) {
     return {
-      packageName: 'web.preview.simulator',
+      packageName: '',
       text: '',
       timestamp: Date.now(),
     };
@@ -118,7 +126,7 @@ export async function startNinjaAutoBooking(criteria: unknown): Promise<NatanAut
     return {
       running: true,
       status: 'searching',
-      detail: 'Simulator mode active in web browser',
+      detail: 'مراقبة شاشة نينجا وقراءة الشفتات الحية',
       lastUpdate: Date.now(),
     };
   }

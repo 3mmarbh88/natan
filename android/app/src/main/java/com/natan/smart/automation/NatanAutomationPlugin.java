@@ -353,6 +353,18 @@ public class NatanAutomationPlugin extends Plugin {
         }
     }
 
+    @PluginMethod
+    public void openNinjaApp(PluginCall call) {
+        Intent intent = getLaunchIntentForNinja(getContext());
+        if (intent != null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve();
+        } else {
+            call.reject("Ninja app is not installed on this device");
+        }
+    }
+
     private JSObject mockLocationStatus() {
         JSObject ret = new JSObject();
         SharedPreferences p = prefs();
