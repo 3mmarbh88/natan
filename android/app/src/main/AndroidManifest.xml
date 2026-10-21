@@ -18,6 +18,15 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <queries>
+        <package android:name="com.samurai" />
+        <package android:name="com.ninja.samurai" />
+        <package android:name="com.ananinja.samurai" />
+        <package android:name="com.samurai.driver" />
+        <package android:name="com.samurai.courier" />
+        <package android:name="com.samurai.rider" />
+        <package android:name="com.samurai.app" />
+        <package android:name="ninja.samurai" />
+        <package android:name="sa.samurai" />
         <package android:name="com.ananinja.driver" />
         <package android:name="com.ananinja.rider" />
         <package android:name="com.ananinja.courier" />
@@ -30,6 +39,7 @@
         <package android:name="com.ninja.ksa" />
         <package android:name="com.ninja.driver.ksa" />
         <package android:name="com.ninja.ksa.driver" />
+        <package android:name="com.ninja.rider" />
         <package android:name="sa.ninja.driver" />
         <package android:name="sa.ninja" />
         <package android:name="com.ninja.app" />

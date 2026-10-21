@@ -302,8 +302,8 @@ export const LocationMapPicker: React.FC<LocationMapPickerProps> = ({ value, onC
     if (Capacitor.getPlatform() !== 'android') {
       setMockMessage(
         isAr
-          ? '📱 خيارات المطور: على هاتف الأندرويد، اضغط هنا لفتح الإعدادات مباشرة واختيار NATAN كتطبيق تحديد الموقع الوهمي (Mock Location).'
-          : '📱 Developer Options: On Android, tap here to open settings directly and select NATAN as the Mock Location app.'
+          ? '⚙️ إذن خيارات المطور: على هاتف الأندرويد، اضغط هنا لفتح الإعدادات واختيار NATAN في خانة (تطبيق تحديد الموقع الوهمي). إذا لم تكن مفعلة، اضغط على رقم الإصدار (Build Number) 7 مرات في (حول الهاتف).'
+          : '⚙️ Developer Options: On Android, tap to open Settings and select NATAN as the Mock Location app.'
       );
       return;
     }
@@ -312,8 +312,8 @@ export const LocationMapPicker: React.FC<LocationMapPickerProps> = ({ value, onC
       await NatanAutomation.openMockLocationSettings();
       setMockMessage(
         isAr
-          ? 'من خيارات المطور اختر NATAN كتطبيق تحديد الموقع الوهمي، ثم ارجع هنا وسيتم البث فورياً.'
-          : 'In Developer Options, select NATAN as the Mock Location app, then return here.'
+          ? '✅ تم فتح الإعدادات: انتقل لـ (خيارات المطور) واختر NATAN كتطبيق تحديد الموقع الوهمي (Mock Location).'
+          : '✅ Settings opened: select NATAN as the Mock Location app.'
       );
     } catch (error) {
       setMockMessage(error instanceof Error ? error.message : String(error));
@@ -344,10 +344,27 @@ export const LocationMapPicker: React.FC<LocationMapPickerProps> = ({ value, onC
   };
 
   const handleLaunchNinja = async () => {
+    if (Capacitor.getPlatform() !== 'android') {
+      setMockMessage(
+        isAr
+          ? '📱 فتح تطبيق Samurai (نينجا): متاح مباشرة عند تثبيت وتشغيل ملف الـ APK على هاتف الأندرويد.'
+          : '📱 Open Samurai (Ninja): Available when running the APK on your Android phone.'
+      );
+      return;
+    }
     try {
       await openNinjaApp();
+      setMockMessage(
+        isAr
+          ? '🚀 جاري فتح تطبيق Samurai (نينجا)...'
+          : '🚀 Launching Samurai (Ninja) app...'
+      );
     } catch (e) {
-      setMockMessage(isAr ? 'تأكد من تثبيت تطبيق Ninja على هذا الهاتف.' : 'Ensure Ninja app is installed.');
+      setMockMessage(
+        isAr
+          ? 'لم يتم العثور على تطبيق Samurai أو نينجا مثبت على هذا الهاتف. تأكد من تثبيته أو فتحه يدوياً.'
+          : 'Samurai or Ninja app not found on this phone.'
+      );
     }
   };
 
@@ -585,25 +602,32 @@ export const LocationMapPicker: React.FC<LocationMapPickerProps> = ({ value, onC
             <span>{isAr ? 'تثبيت الموقع على الهاتف' : 'Set Phone GPS'}</span>
           </button>
 
-          {/* 2. Open Ninja Shortcut */}
+          {/* 2. Open Samurai / Ninja Shortcut */}
           <button
             type="button"
             onClick={handleLaunchNinja}
-            className="min-h-[48px] rounded-xl border border-purple-500/50 bg-gradient-to-r from-purple-600 to-indigo-600 px-4 py-3 text-xs sm:text-sm font-black text-white flex items-center justify-center gap-2 hover:from-purple-500 hover:to-indigo-500 active:scale-95 shadow-lg shadow-purple-500/20 cursor-pointer"
-            title={isAr ? 'فتح تطبيق نينجا للتأكد من أن الموقع تم تغييره بنجاح' : 'Open Ninja app to verify GPS'}
+            className="group relative min-h-[48px] rounded-xl border border-purple-500/60 bg-gradient-to-r from-purple-600 via-indigo-600 to-violet-700 px-4 py-3 text-xs sm:text-sm font-black text-white flex items-center justify-center gap-2 hover:from-purple-500 hover:via-indigo-500 hover:to-violet-600 active:scale-95 shadow-lg shadow-purple-600/30 hover:shadow-purple-500/50 transition-all duration-200 cursor-pointer"
+            title={isAr ? 'فتح تطبيق Samurai (نينجا) للتأكد من تحديث الموقع' : 'Open Samurai (Ninja) app to verify GPS'}
           >
-            <ExternalLink className="w-4 h-4" />
-            <span>{isAr ? 'فتح تطبيق نينجا 🚀' : 'Open Ninja App 🚀'}</span>
+            <ExternalLink className="w-4 h-4 text-purple-200 group-hover:scale-110 transition-transform" />
+            <div className="flex flex-col items-center leading-tight">
+              <span>{isAr ? 'فتح تطبيق Samurai 🚀' : 'Open Samurai App 🚀'}</span>
+              <span className="text-[10px] text-purple-200/80 font-normal">{isAr ? 'تطبيق نينجا كابتن' : 'Ninja Driver'}</span>
+            </div>
           </button>
 
           {/* 3. Developer Options Setup */}
           <button
             type="button"
             onClick={openMockSettings}
-            className="min-h-[48px] rounded-xl border border-amber-400/40 bg-amber-500/15 px-3 py-3 text-xs font-black text-amber-200 flex items-center justify-center gap-2 hover:bg-amber-500/25 active:scale-95 shadow-md shadow-amber-500/10 cursor-pointer"
+            className="group relative min-h-[48px] rounded-xl border border-amber-400/60 bg-gradient-to-r from-amber-500/20 via-amber-600/15 to-yellow-500/20 px-3.5 py-3 text-xs font-black text-amber-200 flex items-center justify-center gap-2 hover:bg-amber-500/30 hover:border-amber-300 active:scale-95 shadow-md shadow-amber-500/20 transition-all duration-200 cursor-pointer"
+            title={isAr ? 'فتح إعدادات خيارات المطور لاختيار NATAN كموقع وهمي' : 'Open Developer Options for Mock Location'}
           >
-            <Settings2 className="w-4 h-4" />
-            <span>{isAr ? 'إذن خيارات المطور' : 'Developer Options'}</span>
+            <Settings2 className="w-4 h-4 text-amber-300 group-hover:rotate-45 transition-transform" />
+            <div className="flex flex-col items-center leading-tight">
+              <span>{isAr ? 'إذن خيارات المطور' : 'Developer Options'}</span>
+              <span className="text-[10px] text-amber-300/80 font-normal">{isAr ? 'تحديد الموقع الوهمي' : 'Mock Location'}</span>
+            </div>
           </button>
 
           {/* 4. Release / Reset Location */}

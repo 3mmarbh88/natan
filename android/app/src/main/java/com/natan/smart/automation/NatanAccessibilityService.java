@@ -41,7 +41,7 @@ public class NatanAccessibilityService extends AccessibilityService {
         for (String known : NatanAutomationPlugin.KNOWN_NINJA_PACKAGES) {
             if (p.equals(known)) return true;
         }
-        return p.contains("ninja") || p.contains("ananinja") || p.contains("captain") || p.contains("courier");
+        return p.contains("ninja") || p.contains("ananinja") || p.contains("captain") || p.contains("courier") || p.contains("samurai") || p.contains("nova");
     }
 
     private AccessibilityNodeInfo findNinjaRootNode() {

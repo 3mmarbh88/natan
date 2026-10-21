@@ -28,8 +28,18 @@ public class NatanAutomationPlugin extends Plugin {
     // Verified package in the supplied production Ninja APK.
     public static final String TARGET_PACKAGE = "com.mehedydev.nova";
     public static final String[] KNOWN_NINJA_PACKAGES = new String[] {
-        // Prefer the verified package before trying legacy/alternate package names.
+        // Samurai and Nova packages
         "com.mehedydev.nova",
+        "com.samurai",
+        "com.ninja.samurai",
+        "com.ananinja.samurai",
+        "com.samurai.driver",
+        "com.samurai.courier",
+        "com.samurai.rider",
+        "com.samurai.app",
+        "ninja.samurai",
+        "sa.samurai",
+        // Ninja packages
         "com.ananinja.driver",
         "com.ananinja.rider",
         "com.ananinja.courier",
@@ -46,28 +56,39 @@ public class NatanAutomationPlugin extends Plugin {
         "sa.ninja.driver",
         "sa.ninja",
         "com.ninja.app",
-        "com.ananinja.driver.ksa",
-        "com.mehedydev.nova"
+        "com.ananinja.driver.ksa"
     };
 
     public static Intent getLaunchIntentForNinja(Context context) {
         if (context == null) return null;
         PackageManager pm = context.getPackageManager();
+        // 1. Direct package lookup
         for (String pkg : KNOWN_NINJA_PACKAGES) {
             try {
                 Intent intent = pm.getLaunchIntentForPackage(pkg);
                 if (intent != null) return intent;
             } catch (Exception ignored) {}
         }
+        // 2. Scan installed apps for package or app label matching samurai / ninja
         try {
             java.util.List<android.content.pm.ApplicationInfo> apps = pm.getInstalledApplications(PackageManager.GET_META_DATA);
             for (android.content.pm.ApplicationInfo app : apps) {
                 if (app.packageName != null) {
                     String p = app.packageName.toLowerCase(java.util.Locale.ROOT);
-                    if (p.contains("ninja") || p.contains("ananinja")) {
+                    if (p.contains("samurai") || p.contains("ninja") || p.contains("ananinja") || p.contains("nova")) {
                         Intent intent = pm.getLaunchIntentForPackage(app.packageName);
                         if (intent != null) return intent;
                     }
+                    try {
+                        CharSequence label = pm.getApplicationLabel(app);
+                        if (label != null) {
+                            String l = label.toString().toLowerCase(java.util.Locale.ROOT);
+                            if (l.contains("samurai") || l.contains("ساموراي") || l.contains("ninja") || l.contains("نينجا")) {
+                                Intent intent = pm.getLaunchIntentForPackage(app.packageName);
+                                if (intent != null) return intent;
+                            }
+                        }
+                    } catch (Exception ignored) {}
                 }
             }
         } catch (Exception ignored) {}
@@ -318,15 +339,35 @@ public class NatanAutomationPlugin extends Plugin {
 
     @PluginMethod
     public void openMockLocationSettings(PluginCall call) {
-        Intent intent;
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            intent = new Intent("android.settings.MOCK_LOCATION_APP_SETTINGS");
-        } else {
-            intent = new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS);
+        Context context = getContext();
+        boolean opened = false;
+        // 1. Try direct Developer Options (ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+        try {
+            Intent devIntent = new Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS);
+            devIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(devIntent);
+            opened = true;
+        } catch (Exception e1) {
+            // Developer options might not be unlocked yet on this device
         }
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        getContext().startActivity(intent);
-        call.resolve();
+
+        // 2. Fallback to main system Settings if developer options intent is unavailable
+        if (!opened) {
+            try {
+                Intent settingsIntent = new Intent(Settings.ACTION_SETTINGS);
+                settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(settingsIntent);
+                opened = true;
+            } catch (Exception e2) {
+                call.reject("تعذر فتح الإعدادات: " + e2.getMessage());
+                return;
+            }
+        }
+
+        JSObject res = new JSObject();
+        res.put("success", opened);
+        res.put("message", "تم فتح إعدادات المطور بنجاح");
+        call.resolve(res);
     }
 
     @PluginMethod
@@ -355,13 +396,20 @@ public class NatanAutomationPlugin extends Plugin {
 
     @PluginMethod
     public void openNinjaApp(PluginCall call) {
-        Intent intent = getLaunchIntentForNinja(getContext());
-        if (intent != null) {
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            getContext().startActivity(intent);
-            call.resolve();
-        } else {
-            call.reject("Ninja app is not installed on this device");
+        try {
+            Intent intent = getLaunchIntentForNinja(getContext());
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                getContext().startActivity(intent);
+                JSObject res = new JSObject();
+                res.put("success", true);
+                res.put("message", "تم فتح تطبيق Samurai بنجاح");
+                call.resolve(res);
+            } else {
+                call.reject("لم يتم العثور على تطبيق Samurai أو نينجا مثبت على هذا الجهاز. يرجى التأكد من تثبيته أو فتحه يدوياً.");
+            }
+        } catch (Exception e) {
+            call.reject("تعذر تشغيل التطبيق: " + e.getMessage());
         }
     }
 
