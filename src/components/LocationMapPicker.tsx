@@ -299,6 +299,15 @@ export const LocationMapPicker: React.FC<LocationMapPickerProps> = ({ value, onC
   };
 
   const openMockSettings = async () => {
+    if (Capacitor.getPlatform() !== 'android') {
+      setMockMessage(
+        isAr
+          ? '📱 خيارات المطور: على هاتف الأندرويد، اضغط هنا لفتح الإعدادات مباشرة واختيار NATAN كتطبيق تحديد الموقع الوهمي (Mock Location).'
+          : '📱 Developer Options: On Android, tap here to open settings directly and select NATAN as the Mock Location app.'
+      );
+      return;
+    }
+
     try {
       await NatanAutomation.openMockLocationSettings();
       setMockMessage(
@@ -312,8 +321,14 @@ export const LocationMapPicker: React.FC<LocationMapPickerProps> = ({ value, onC
   };
 
   const stopMock = async () => {
+    if (Capacitor.getPlatform() !== 'android') {
+      setMockActive(false);
+      setMockMessage(isAr ? 'تم إعادة تعيين إحداثيات الموقع والعودة للموقع الأصلي.' : 'Map GPS lock reset.');
+      return;
+    }
+
     try {
-      const result = await NatanAutomation.stopMockLocation();
+      await NatanAutomation.stopMockLocation();
       setMockActive(false);
       setMockMessage(isAr ? 'تم إيقاف تثبيت الموقع والعودة لموقع GPS الفعلي للهاتف.' : 'GPS location lock released.');
     } catch (error) {

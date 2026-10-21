@@ -1,4 +1,4 @@
-import { registerPlugin, Capacitor } from '@capacitor/core';
+import { registerPlugin, WebPlugin, Capacitor } from '@capacitor/core';
 import type { Shift } from '../types';
 
 export interface NatanMockLocationStatus {
@@ -34,7 +34,75 @@ interface NatanAutomationPlugin {
   openNinjaApp(): Promise<void>;
 }
 
-export const NatanAutomation = registerPlugin<NatanAutomationPlugin>('NatanAutomation');
+class NatanAutomationWeb extends WebPlugin implements NatanAutomationPlugin {
+  async startNinjaAutomation() {
+    return { running: true, status: 'ready', detail: 'Web simulation active', lastUpdate: Date.now() };
+  }
+  async startNinjaAutoBooking() {
+    return { running: true, status: 'ready', detail: 'Web simulation active', lastUpdate: Date.now() };
+  }
+  async getAutomationStatus() {
+    return { running: false, status: 'idle', detail: 'Web preview mode', lastUpdate: Date.now() };
+  }
+  async stopNinjaAutomation() {
+    return { running: false, status: 'stopped', detail: 'Stopped', lastUpdate: Date.now() };
+  }
+  async openAccessibilitySettings(): Promise<void> {
+    console.info('[NatanAutomation] Accessibility Settings are opened on native Android devices.');
+  }
+  async isAccessibilityEnabled() {
+    return { enabled: true };
+  }
+  async getCurrentLocation() {
+    return { latitude: 24.7136, longitude: 46.6753, accuracy: 10 };
+  }
+  async setMockLocation(options: { latitude: number; longitude: number }) {
+    return {
+      active: true,
+      status: 'active',
+      detail: `Web Preview: GPS coordinate broadcast to (${options.latitude}, ${options.longitude})`,
+      latitude: options.latitude,
+      longitude: options.longitude,
+      lastUpdate: Date.now(),
+    };
+  }
+  async stopMockLocation() {
+    return {
+      active: false,
+      status: 'stopped',
+      detail: 'GPS lock released',
+      latitude: 0,
+      longitude: 0,
+      lastUpdate: Date.now(),
+    };
+  }
+  async getMockLocationStatus() {
+    return {
+      active: false,
+      status: 'idle',
+      detail: 'Web preview mode',
+      latitude: 0,
+      longitude: 0,
+      lastUpdate: Date.now(),
+    };
+  }
+  async openMockLocationSettings(): Promise<void> {
+    console.info('[NatanAutomation] Mock Location settings are opened on native Android devices.');
+  }
+  async openBatteryOptimizationSettings(): Promise<void> {
+    console.info('[NatanAutomation] Battery optimization settings are opened on native Android devices.');
+  }
+  async getNinjaScreenSnapshot() {
+    return { packageName: 'com.mehedydev.nova', text: '', timestamp: Date.now() };
+  }
+  async openNinjaApp(): Promise<void> {
+    console.info('[NatanAutomation] Ninja app can be launched directly on native Android devices.');
+  }
+}
+
+export const NatanAutomation = registerPlugin<NatanAutomationPlugin>('NatanAutomation', {
+  web: () => Promise.resolve(new NatanAutomationWeb()),
+});
 
 export async function openNinjaApp(): Promise<void> {
   if (!isNatanNativeAndroid()) {
