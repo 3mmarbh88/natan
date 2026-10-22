@@ -25,7 +25,6 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   const [stepText, setStepText] = useState(
     isAr ? 'تهيئة محرك NATAN الذكي...' : 'Initializing NATAN engine...'
   );
-  const [isFading, setIsFading] = useState(false);
 
   useEffect(() => {
     // Play initial subtle tick
@@ -78,13 +77,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         haptics.vibrateTick();
         soundFX.playSpeedTick();
 
-        // Hold 100% briefly, then trigger smooth fade-out and open NATAN Secure Gateway
+        // Hold 100% briefly, then trigger direct transition to Secure Gateway
         setTimeout(() => {
-          setIsFading(true);
-          setTimeout(() => {
-            onFinish();
-          }, 260);
-        }, 220);
+          onFinish();
+        }, 180);
       } else {
         setProgress(Math.floor(current));
       }
@@ -95,17 +91,12 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
   const handleSkip = () => {
     haptics.vibrateTick();
-    setIsFading(true);
-    setTimeout(() => {
-      onFinish();
-    }, 200);
+    onFinish();
   };
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-between p-6 bg-slate-950 text-slate-100 select-none overflow-hidden transition-opacity duration-300 ${
-        isFading ? 'opacity-0 pointer-events-none' : 'opacity-100'
-      }`}
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-between p-6 bg-slate-950 text-slate-100 select-none overflow-hidden"
       style={{ minHeight: '100dvh' }}
     >
       {/* Ambient Cyber Light Effects */}

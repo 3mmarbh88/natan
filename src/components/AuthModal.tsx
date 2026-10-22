@@ -1108,7 +1108,7 @@ export default function AuthModal({
   return (
     <div
       dir={isAr ? 'rtl' : 'ltr'}
-      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-950/90 p-3 sm:p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-950 p-3 sm:p-4"
     >
       <div className="relative my-auto sm:my-4 w-full max-w-sm sm:max-w-md overflow-hidden rounded-3xl border border-slate-700/80 bg-slate-950 shadow-2xl">
         {/* Language Selection Header Bar - Touch-First for Mobile Phones */}

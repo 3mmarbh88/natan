@@ -394,6 +394,9 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] =
     useState<boolean>(true);
 
+  const [isInitialGatePassed, setIsInitialGatePassed] =
+    useState<boolean>(false);
+
   const [showActivationModal, setShowActivationModal] =
     useState<boolean>(false);
 
@@ -565,6 +568,7 @@ export default function App() {
        */
     }
 
+    setIsInitialGatePassed(true);
     setShowAuthModal(false);
 
     
@@ -785,6 +789,7 @@ export default function App() {
        */
     }
 
+    setIsInitialGatePassed(false);
     setShowAuthModal(true);
 
     addLog(
@@ -2159,9 +2164,62 @@ export default function App() {
 
   /*
    * ============================================================
-   * RENDER
+   * 1. SPLASH SCREEN (MOBILE BOOTSTRAP)
+   * Displays directly when tapping app icon on phone.
+   * Dashboard is strictly NEVER mounted or rendered behind it.
    * ============================================================
    */
+  if (showSplashScreen) {
+    return (
+      <SplashScreen
+        appName="NATAN Pro"
+        isAr={isAr}
+        onFinish={() => {
+          setShowSplashScreen(false);
+          setShowAuthModal(true);
+        }}
+      />
+    );
+  }
+
+  /*
+   * ============================================================
+   * 2. SECURE ENTRY GATEWAY (بوابة الدخول الآمن)
+   * Opens directly after loading without flashing the dashboard.
+   * Dashboard is strictly NEVER rendered or displayed before entry.
+   * ============================================================
+   */
+  if (!isInitialGatePassed) {
+    return (
+      <div
+        dir={isAr ? 'rtl' : 'ltr'}
+        lang={isAr ? 'ar' : 'en'}
+        className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center relative overflow-hidden"
+      >
+        <AuthModal
+          currentSession={authSession}
+          onAuthenticate={(session) => {
+            handleAuthSuccess(session);
+          }}
+          onClose={() => {
+            if (isAuthenticated) {
+              setIsInitialGatePassed(true);
+              setShowAuthModal(false);
+            }
+          }}
+          onOpenWhatsApp={() => setIsWhatsAppModalOpen(true)}
+          initialTab="login"
+        />
+
+        {isWhatsAppModalOpen && (
+          <WhatsAppSupport
+            isOpen={isWhatsAppModalOpen}
+            onClose={() => setIsWhatsAppModalOpen(false)}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -4310,25 +4368,10 @@ export default function App() {
       )}
 
       {/* ======================================================
-          SPLASH SCREEN (MOBILE & DESKTOP BOOTSTRAP)
+          IN-APP AUTH MODAL (WHEN OPENED FROM DASHBOARD)
           ====================================================== */}
 
-      {showSplashScreen && (
-        <SplashScreen
-          appName="NATAN Pro"
-          isAr={isAr}
-          onFinish={() => {
-            setShowSplashScreen(false);
-            setShowAuthModal(true);
-          }}
-        />
-      )}
-
-      {/* ======================================================
-          AUTH MODAL
-          ====================================================== */}
-
-      {!showSplashScreen && showAuthModal && (
+      {showAuthModal && (
         <AuthModal
           currentSession={
             authSession
