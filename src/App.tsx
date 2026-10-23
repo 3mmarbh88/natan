@@ -668,6 +668,26 @@ export default function App() {
       successRate: 100,
     });
 
+  // Production Cleanup: Remove any simulated/test shifts and test logs from previous runs
+  useEffect(() => {
+    try {
+      localStorage.removeItem('natan_captured_shifts');
+      localStorage.removeItem('natan_available_shifts');
+      const rawDirectLogs = localStorage.getItem('natan_direct_protocol_logs');
+      if (rawDirectLogs) {
+        const parsed = JSON.parse(rawDirectLogs);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter(
+            (l: any) => !l.details?.includes('SAM_') && !l.summary?.includes('الماسي') && !l.summary?.includes('تجريبي')
+          );
+          localStorage.setItem('natan_direct_protocol_logs', JSON.stringify(cleaned));
+        }
+      }
+    } catch {
+      // safe
+    }
+  }, []);
+
   const [screenReaderStatus, setScreenReaderStatus] = useState<{
     packageName: string;
     text: string;

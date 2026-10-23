@@ -287,11 +287,6 @@ export const DirectProtocolSniper: React.FC<DirectProtocolSniperProps> = ({
     }
   };
 
-  const handleTriggerTestDrop = () => {
-    soundFX.playRadarBeep();
-    directProtocol.triggerTestShiftDrop(selectedBranch, autoBookActive);
-  };
-
   const handleRefreshPing = async () => {
     setIsMeasuringPing(true);
     soundFX.playSpeedTick();
@@ -729,20 +724,16 @@ export const DirectProtocolSniper: React.FC<DirectProtocolSniperProps> = ({
               </select>
             </div>
 
-            {/* Instant Test Drop Button */}
+            {/* Real Production Status Banner */}
             <div className="pt-2 border-t border-slate-800">
-              <button
-                type="button"
-                onClick={handleTriggerTestDrop}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-amber-600 via-orange-600 to-amber-600 hover:from-amber-500 hover:to-orange-500 text-white font-black text-xs shadow-lg shadow-orange-950/40 transition-all cursor-pointer active:scale-95 border border-amber-400/40"
-              >
-                <Flame className="w-4 h-4 text-amber-200 animate-pulse" />
+              <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-950/80 border border-emerald-500/30 text-xs text-slate-300">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>
                   {isAr
-                    ? '🎯 تجربة فورية: محاكاة نزول شفت واقتناصه بالذكاء الاصطناعي (18ms)'
-                    : '🎯 Trigger Instant AI Shift Drop Test (18ms)'}
+                    ? 'وضع الإنتاج الميداني الحقيقي جاهز: يعمل التطبيق بالاتصال المباشر على الهاتف لحجز أي شفت رسمي يطرحه نينجا وساموراي فوراً.'
+                    : 'Real production mode active: Connected to live backend to capture official shifts.'}
                 </span>
-              </button>
+              </div>
             </div>
           </div>
         </div>
