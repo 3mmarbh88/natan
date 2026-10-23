@@ -12,6 +12,7 @@ import { WhatsAppSupport } from './components/WhatsAppSupport';
 import AuthModal from './components/AuthModal';
 import { SimulatorRadar } from './components/SimulatorRadar';
 import { SplashScreen } from './components/SplashScreen';
+import { DirectProtocolSniper } from './components/DirectProtocolSniper';
 
 import {
   Shift,
@@ -56,6 +57,8 @@ import {
   Fingerprint,
   ScanFace,
   KeyRound,
+  Server,
+  Bot,
 } from 'lucide-react';
 
 /*
@@ -296,6 +299,7 @@ export default function App() {
   const [activeView, setActiveView] =
     useState<
       | 'radar'
+      | 'direct'
       | 'criteria'
       | 'location'
       | 'engine'
@@ -2515,11 +2519,11 @@ export default function App() {
           <div
             className="
               grid
-              grid-cols-4
-              gap-1.5
+              grid-cols-5
+              gap-1
+              sm:gap-2
               sm:flex
               sm:items-center
-              sm:gap-2
               w-full
               sm:w-auto
               p-1.5
@@ -2533,11 +2537,11 @@ export default function App() {
               border-slate-800/80
             "
           >
-            {/* 1. Radar */}
+            {/* 1. Radar (Screen Automation) */}
             <button
               type="button"
               onClick={() => setActiveView('radar')}
-              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2 sm:py-2.5 rounded-xl min-h-[46px] text-[10px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
+              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1 sm:px-3.5 py-2 sm:py-2.5 rounded-xl min-h-[46px] text-[10px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
                 activeView === 'radar'
                   ? 'bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/25 border border-purple-400/40'
                   : 'bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800/90 border border-slate-800'
@@ -2548,11 +2552,26 @@ export default function App() {
               <span className="sm:hidden leading-tight font-black">{isAr ? 'الرادار' : 'Radar'}</span>
             </button>
 
-            {/* 2. Criteria */}
+            {/* 2. Direct API Protocol (AI Sniper - Zero Accessibility) */}
+            <button
+              type="button"
+              onClick={() => setActiveView('direct')}
+              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1 sm:px-3.5 py-2 sm:py-2.5 rounded-xl min-h-[46px] text-[10px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 relative ${
+                activeView === 'direct'
+                  ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-lg shadow-emerald-500/30 border border-emerald-400/50 ring-1 ring-emerald-400/40'
+                  : 'bg-slate-900/90 text-emerald-400 hover:text-emerald-300 hover:bg-slate-800/90 border border-emerald-500/30'
+              }`}
+            >
+              <Server className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="hidden sm:inline truncate">{isAr ? 'البروتوكول الذكي (AI API)' : 'AI Direct Protocol'}</span>
+              <span className="sm:hidden leading-tight font-black">{isAr ? 'AI API' : 'Direct'}</span>
+            </button>
+
+            {/* 3. Criteria */}
             <button
               type="button"
               onClick={() => setActiveView('criteria')}
-              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2 sm:py-2.5 rounded-xl min-h-[46px] text-[10px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
+              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1 sm:px-3.5 py-2 sm:py-2.5 rounded-xl min-h-[46px] text-[10px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
                 activeView === 'criteria'
                   ? 'bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/25 border border-purple-400/40'
                   : 'bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800/90 border border-slate-800'
@@ -2563,11 +2582,11 @@ export default function App() {
               <span className="sm:hidden leading-tight font-black">{isAr ? 'الشروط' : 'Filters'}</span>
             </button>
 
-            {/* 3. LOCATION MAP */}
+            {/* 4. LOCATION MAP */}
             <button
               type="button"
               onClick={() => setActiveView('location')}
-              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2 sm:py-2.5 rounded-xl min-h-[46px] text-[10px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
+              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1 sm:px-3.5 py-2 sm:py-2.5 rounded-xl min-h-[46px] text-[10px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
                 activeView === 'location'
                   ? 'bg-gradient-to-r from-cyan-600 via-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25 border border-cyan-400/40'
                   : 'bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800/90 border border-slate-800'
@@ -2578,11 +2597,11 @@ export default function App() {
               <span className="sm:hidden leading-tight font-black">{isAr ? 'الخريطة' : 'Map'}</span>
             </button>
 
-            {/* 4. Engine */}
+            {/* 5. Engine */}
             <button
               type="button"
               onClick={() => setActiveView('engine')}
-              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2 sm:py-2.5 rounded-xl min-h-[46px] text-[10px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
+              className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1 sm:px-3.5 py-2 sm:py-2.5 rounded-xl min-h-[46px] text-[10px] sm:text-xs font-black transition-all cursor-pointer active:scale-95 ${
                 activeView === 'engine'
                   ? 'bg-gradient-to-r from-purple-600 via-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/25 border border-purple-400/40'
                   : 'bg-slate-900/90 text-slate-300 hover:text-white hover:bg-slate-800/90 border border-slate-800'
@@ -2591,8 +2610,8 @@ export default function App() {
               <Zap className="w-4 h-4 text-amber-400 shrink-0" />
               <span className="hidden sm:inline truncate">{t.tabEngine} ({settings.scanIntervalMs}ms)</span>
               <span className="sm:hidden leading-tight font-black">{isAr ? 'السرعة' : 'Speed'}</span>
-            </button> 
-</div>
+            </button>
+          </div>
 
           {/* Engine status */}
 
@@ -2842,6 +2861,7 @@ export default function App() {
                 onRefreshScreenSnapshot={refreshNinjaScreenSnapshot}
                 onOpenAccessibilitySettings={handleOpenAccessibilitySettings}
                 onUpdateSettings={updateSettings}
+                onSwitchToDirectApi={() => setActiveView('direct')}
               />
             </div>
 
@@ -3566,6 +3586,34 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* ====================================================
+            DIRECT PROTOCOL (AI API SNIPER - ZERO ACCESSIBILITY)
+            ==================================================== */}
+
+        {activeView === 'direct' && (
+          <DirectProtocolSniper
+            settings={settings}
+            onUpdateSettings={updateSettings}
+            onSwitchToScreenRadar={() => setActiveView('radar')}
+            onBookShift={(newShift) => {
+              setCapturedShifts((prev) => [newShift, ...prev]);
+              setStats((prev) => ({
+                ...prev,
+                totalCaptured: prev.totalCaptured + 1,
+                lastDetectedTimeMs: newShift.responseTimeMs || 22,
+                fastestCatchTimeMs: Math.min(prev.fastestCatchTimeMs || 999, newShift.responseTimeMs || 22),
+              }));
+              addLog(
+                'success',
+                isAr
+                  ? `⚡ تم اقتناص شفت بنجاح عبر البروتوكول المباشر بالذكاء الاصطناعي (${newShift.district} - ${newShift.startTime})!`
+                  : `⚡ Shift booked via AI Direct Protocol (${newShift.district} - ${newShift.startTime})!`
+              );
+            }}
+            isAr={isAr}
+          />
+        )}
       </main>
 
       {/* ======================================================
@@ -3591,7 +3639,7 @@ export default function App() {
         "
       >
         <div className="grid grid-cols-5 items-center h-14">
-          {/* 1. Radar */}
+          {/* 1. Radar (Screen Method) */}
           <button
             type="button"
             onClick={() => {
@@ -3617,7 +3665,28 @@ export default function App() {
             {activeView === 'radar' && <span className="w-1.5 h-1 rounded-full bg-purple-400 -mt-0.5" />}
           </button>
 
-          {/* 2. Criteria */}
+          {/* 2. Direct API (AI Protocol Method) */}
+          <button
+            type="button"
+            onClick={() => {
+              haptics.vibrateTick();
+              setActiveView('direct');
+            }}
+            className={`flex flex-col items-center justify-center gap-1 w-full h-full relative cursor-pointer active:scale-95 transition-transform ${
+              activeView === 'direct'
+                ? 'text-emerald-400 font-bold'
+                : 'text-emerald-500/80 hover:text-emerald-300'
+            }`}
+          >
+            <div className="relative">
+              <Server className={`w-5 h-5 ${activeView === 'direct' ? 'text-emerald-400 stroke-[2.5]' : ''}`} />
+              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            </div>
+            <span className="text-[10px] leading-none truncate max-w-[62px]">{isAr ? 'AI API' : 'Direct'}</span>
+            {activeView === 'direct' && <span className="w-1.5 h-1 rounded-full bg-emerald-400 -mt-0.5" />}
+          </button>
+
+          {/* 3. Criteria */}
           <button
             type="button"
             onClick={() => {
@@ -3635,7 +3704,7 @@ export default function App() {
             {activeView === 'criteria' && <span className="w-1.5 h-1 rounded-full bg-purple-400 -mt-0.5" />}
           </button>
 
-          {/* 3. Location */}
+          {/* 4. Location */}
           <button
             type="button"
             onClick={() => {
@@ -3653,7 +3722,7 @@ export default function App() {
             {activeView === 'location' && <span className="w-1.5 h-1 rounded-full bg-cyan-400 -mt-0.5" />}
           </button>
 
-          {/* 4. Engine */}
+          {/* 5. Engine */}
           <button
             type="button"
             onClick={() => {

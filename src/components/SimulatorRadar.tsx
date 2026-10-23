@@ -26,6 +26,7 @@ interface SimulatorRadarProps {
   onRefreshScreenSnapshot?: () => Promise<void>;
   onOpenAccessibilitySettings?: () => Promise<void>;
   onUpdateSettings?: (patch: Partial<BookingSettings>) => void;
+  onSwitchToDirectApi?: () => void;
 }
 
 export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
@@ -39,6 +40,7 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
   onRefreshScreenSnapshot,
   onOpenAccessibilitySettings,
   onUpdateSettings,
+  onSwitchToDirectApi,
 }) => {
   const { t, isAr } = useLanguage();
   const [modalShift, setModalShift] = useState<Shift | null>(null);
@@ -223,6 +225,36 @@ export const SimulatorRadar: React.FC<SimulatorRadarProps> = ({
           </div>
         ) : null}
       </div>
+
+      {/* Alternative Method Banner (AI Direct API Protocol - Zero Accessibility) */}
+      {onSwitchToDirectApi && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 sm:p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/50 via-slate-900 to-teal-950/40 border border-emerald-500/35 shadow-lg">
+          <div className="flex items-center gap-2.5 text-xs text-slate-200">
+            <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+              <Zap className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div>
+              <span className="font-bold text-white block">
+                {isAr
+                  ? 'طريقة Direct API بالذكاء الاصطناعي (بدون إمكانية وصول)'
+                  : 'AI Direct Protocol Method (Zero Accessibility)'}
+              </span>
+              <span className="text-[11px] text-slate-400">
+                {isAr
+                  ? 'تتصل مباشرة بسيرفرات ساموراي وتعمل 24/7 والشاشة مغلقة بدون أذونات معقدة'
+                  : 'Hooks directly to Samurai backend with 20ms response and screen off'}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onSwitchToDirectApi}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-md active:scale-95 border border-emerald-400/40"
+          >
+            <span>{isAr ? 'فتح طريقة AI Direct API ⚡' : 'Open AI Direct API ⚡'}</span>
+          </button>
+        </div>
+      )}
 
       {/* Sniper Speed & Pull-to-Refresh Controls */}
       <div className="p-3.5 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-950 border border-slate-800 space-y-3">
