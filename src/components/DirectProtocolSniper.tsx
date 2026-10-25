@@ -157,39 +157,13 @@ export const DirectProtocolSniper: React.FC<DirectProtocolSniperProps> = ({
   }, []);
 
   const handleQuickAutoConnect = () => {
-    setIsAuthLoading(true);
-    soundFX.playSpeedTick();
-    setTimeout(() => {
-      const generatedSession: DirectProtocolSession = {
-        accessToken: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.samurai_direct_${Date.now()}`,
-        driverId: driverIdInput || 'CPT-SAMURAI-PRO',
-        phone: phoneNumber.length > 5 ? phoneNumber : '05XXXXXXXX',
-        lastConnectedAt: Date.now(),
-        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
-      };
-      directProtocol.saveSession(generatedSession);
-      setTokenInput(generatedSession.accessToken);
-      setIsSessionConnected(true);
-      setTokenSavedSuccess(true);
-      setIsAuthLoading(false);
-      setAuthFeedback(
-        isAr
-          ? '🟢 تم الربط التلقائي الفوري بحساب ساموراي بنجاح! جاهز لاقتناص الشفتات.'
-          : 'Samurai account connected automatically!'
-      );
-      soundFX.playSuccess();
-      haptics.vibrateCapture();
-      setTimeout(() => setTokenSavedSuccess(false), 4000);
-
-      directProtocol.addLog({
-        method: 'POST',
-        endpoint: '/auth/auto-connect',
-        status: 200,
-        latencyMs: pingLatency,
-        type: 'auth',
-        summary: '⚡ تم تفعيل الاتصال التلقائي الفوري بحساب ساموراي بنقرة واحدة (بدون توكن يدوي)',
-      });
-    }, 400);
+    directProtocol.clearSession();
+    setIsSessionConnected(false);
+    setTokenInput('');
+    setAuthFeedback(isAr
+      ? 'الربط التلقائي غير مدعوم لعدم وجود واجهة دخول رسمية مهيأة. سجّل الدخول داخل Ninja واستخدم رادار قراءة الشاشة.'
+      : 'Automatic sign-in is unavailable without a supported auth API. Sign in to Ninja and use Screen Radar.');
+    directProtocol.addLog({ method: 'POST', endpoint: '/auth/auto-connect', status: 0, latencyMs: 0, type: 'error', summary: 'تم منع إنشاء جلسة دخول وهمية.' });
   };
 
   const handleDisconnectSession = () => {
@@ -211,7 +185,7 @@ export const DirectProtocolSniper: React.FC<DirectProtocolSniperProps> = ({
       const res = await directProtocol.requestPhoneOtp(phoneNumber);
       if (res.success) {
         setIsOtpSent(true);
-        setAuthFeedback(isAr ? 'تم إرسال كود التحقق (أدخل 1234 أو كود الـ SMS)' : 'SMS Code Sent');
+        setAuthFeedback(res.message);
         soundFX.playSpeedTick();
       }
     } finally {
@@ -252,22 +226,16 @@ export const DirectProtocolSniper: React.FC<DirectProtocolSniperProps> = ({
 
     const session: DirectProtocolSession = {
       accessToken: tokenInput.trim(),
-      driverId: driverIdInput.trim() || 'DRV_SAMURAI_PRO',
+      driverId: driverIdInput.trim() || undefined,
       lastConnectedAt: Date.now(),
     };
     directProtocol.saveSession(session);
+    setIsSessionConnected(false);
     setTokenSavedSuccess(true);
+    setAuthFeedback(isAr ? 'تم حفظ الرمز محلياً فقط؛ لم يتم التحقق من صلاحيته ولن يُعتبر الحساب متصلاً.' : 'Token saved locally only; it has not been validated.');
     soundFX.playSpeedTick();
     setTimeout(() => setTokenSavedSuccess(false), 3000);
-
-    directProtocol.addLog({
-      method: 'POST',
-      endpoint: '/auth/verify-token',
-      status: 200,
-      latencyMs: pingLatency,
-      type: 'auth',
-      summary: '🔑 تم ربط وتحديث جلسة كابتن ساموراي يدوياً بنجاح',
-    });
+    directProtocol.addLog({ method: 'POST', endpoint: '/auth/verify-token', status: 0, latencyMs: 0, type: 'error', summary: 'تم حفظ الرمز محلياً دون التحقق من صلاحيته.' });
   };
 
   const handleToggleRadar = () => {
@@ -275,16 +243,13 @@ export const DirectProtocolSniper: React.FC<DirectProtocolSniperProps> = ({
       directProtocol.stopRadar();
       setIsRunning(false);
       soundFX.playSpeedTick();
-    } else {
-      directProtocol.startRadar({
-        intervalMs: scanSpeedMs,
-        autoBook: autoBookActive,
-        targetBranches: settings.selectedDistricts,
-      });
-      setIsRunning(true);
-      soundFX.playRadarBeep();
-      haptics.vibrateTick();
+      return;
     }
+    directProtocol.startRadar({ intervalMs: scanSpeedMs, autoBook: autoBookActive, targetBranches: settings.selectedDistricts });
+    setIsRunning(false);
+    setAuthFeedback(isAr
+      ? 'الرادار المباشر غير مفعّل لعدم وجود واجهة شفتات رسمية موثّقة. استخدم رادار قراءة الشاشة عبر Accessibility.'
+      : 'Direct radar is disabled because no verified shift-feed API is configured. Use Accessibility Screen Radar.');
   };
 
   const handleRefreshPing = async () => {
@@ -317,7 +282,7 @@ export const DirectProtocolSniper: React.FC<DirectProtocolSniperProps> = ({
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base sm:text-lg font-black text-white">
                   {isAr
-                    ? 'طريقة الذكاء الاصطناعي المباشرة (AI Direct API Protocol)'
+                    ? 'وضع الاتصال المباشر غير المهيأ'
                     : 'AI Direct Protocol Sniper'}
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1 shadow-sm">
@@ -326,13 +291,13 @@ export const DirectProtocolSniper: React.FC<DirectProtocolSniperProps> = ({
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-purple-300" />
-                  {isAr ? 'توقع ذكي للشفتات' : 'AI Predictive'}
+                  {isAr ? 'لا توجد تنبؤات فعلية حالياً' : 'No live predictions'}
                 </span>
               </div>
 
               <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
                 {isAr
-                  ? 'تعمل هذه الطريقة بالتوازي مع طريقة قراءة الشاشة المعتادة. تتصل مباشرة بخوادم ساموراي ونينجا عبر HTTPS فائق السرعة (15-30ms) وتقتنص الشفتات في الخلفية حتى والشاشة مقفلة.'
+                  ? 'هذا الوضع غير مهيأ للاتصال الرسمي ولا ينفّذ الحجز. استخدم رادار قراءة الشاشة عبر Accessibility؛ ولا يُعلن نجاح الحجز إلا بعد تأكيد واضح من تطبيق Ninja.'
                   : 'Works in tandem with screen inspection. Connects directly to Samurai endpoints via ultra-low latency HTTPS (15-30ms) and books shifts in the background.'}
               </p>
             </div>

@@ -15,6 +15,7 @@ export interface DirectProtocolSession {
   appVersion?: string;
   expiresAt?: number;
   lastConnectedAt?: number;
+  verified?: boolean;
 }
 
 export interface DirectProtocolLog {
@@ -126,69 +127,28 @@ export class DirectProtocolService {
 
   public hasValidToken(): boolean {
     const session = this.getSession();
-    return !!(session && session.accessToken && session.accessToken.trim().length > 10);
+    return !!(
+      session &&
+      session.verified === true &&
+      session.accessToken &&
+      session.accessToken.trim().length > 10 &&
+      (!session.expiresAt || session.expiresAt > Date.now())
+    );
   }
 
   // --- Phone & OTP Login Flow ---
 
-  public async requestPhoneOtp(phoneNumber: string): Promise<{ success: boolean; message: string }> {
-    const cleanPhone = phoneNumber.replace(/\s+/g, '');
-    this.addLog({
-      method: 'POST',
-      endpoint: '/auth/captains/request-otp',
-      status: 200,
-      latencyMs: 35,
-      type: 'auth',
-      summary: `📲 تم إرسال كود التحقق SMS إلى رقم الكابتن: ${cleanPhone}`,
-      details: JSON.stringify({ phone: cleanPhone, timestamp: Date.now() }),
-    });
-
-    return {
-      success: true,
-      message: 'تم إرسال كود التحقق بنجاح إلى هاتفك (SMS)',
-    };
+  public async requestPhoneOtp(_phoneNumber: string): Promise<{ success: boolean; message: string }> {
+    this.addLog({ method: 'POST', endpoint: '/auth/captains/request-otp', status: 0, latencyMs: 0, type: 'error', summary: 'لم يتم إرسال SMS: واجهة التحقق الرسمية غير مهيأة.' });
+    return { success: false, message: 'تسجيل الدخول عبر SMS غير متاح: لا توجد واجهة تحقق رسمية مهيأة. سجّل الدخول داخل تطبيق Ninja أو Samurai.' };
   }
 
   public async verifyOtpAndLogin(
-    phoneNumber: string,
-    otpCode: string
+    _phoneNumber: string,
+    _otpCode: string
   ): Promise<{ success: boolean; token?: string; message: string }> {
-    const cleanPhone = phoneNumber.replace(/\s+/g, '');
-    const cleanOtp = otpCode.trim();
-
-    if (cleanOtp.length < 4) {
-      return { success: false, message: 'رمز التحقق غير مكتمل' };
-    }
-
-    const generatedToken = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.samurai_live_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const driverId = `CPT-${cleanPhone.slice(-4)}`;
-
-    const session: DirectProtocolSession = {
-      accessToken: generatedToken,
-      driverId,
-      phone: cleanPhone,
-      deviceId: `ANDROID_PRO_${Date.now()}`,
-      lastConnectedAt: Date.now(),
-      expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
-    };
-
-    this.saveSession(session);
-
-    this.addLog({
-      method: 'POST',
-      endpoint: '/auth/captains/verify-otp',
-      status: 200,
-      latencyMs: 38,
-      type: 'auth',
-      summary: `✅ تم التحقق وتوثيق حساب الكابتن (${driverId}) وربط الجلسة للإنتاج الحقيقي!`,
-      details: JSON.stringify({ phone: cleanPhone, driverId, tokenLinked: true }),
-    });
-
-    return {
-      success: true,
-      token: generatedToken,
-      message: 'تم تسجيل الدخول وربط الحساب بنجاح',
-    };
+    this.clearSession();
+    return { success: false, message: 'تعذر التحقق: واجهة OTP الرسمية غير مهيأة. لم يتم إنشاء جلسة أو رمز دخول وهمي.' };
   }
 
   // --- Network Latency & Server Health ---
@@ -196,20 +156,15 @@ export class DirectProtocolService {
   public async measureLatency(): Promise<number> {
     const start = performance.now();
     try {
-      await fetch('https://api.samurai.delivery/api/v1/health', {
-        method: 'HEAD',
-        mode: 'no-cors',
-        cache: 'no-store',
-      }).catch(() => null);
-
+      const response = await fetch('https://api.samurai.delivery/api/v1/health', { method: 'HEAD', cache: 'no-store' });
       const elapsed = Math.round(performance.now() - start);
-      const finalLatency = Math.min(Math.max(elapsed || 20, 14), 160);
-      this.lastPingMs = finalLatency;
-      return finalLatency;
+      if (!response.ok) { this.lastPingMs = 0; return 0; }
+      this.lastPingMs = elapsed;
+      return elapsed;
     } catch {
-      const fallback = Math.floor(Math.random() * 10) + 15;
-      this.lastPingMs = fallback;
-      return fallback;
+      // Failed or CORS-blocked health checks are unavailable, not successful pings.
+      this.lastPingMs = 0;
+      return 0;
     }
   }
 
@@ -220,29 +175,8 @@ export class DirectProtocolService {
   // --- AI Predictive Shift Engine ---
 
   private initAiPredictions() {
-    this.currentPredictions = [
-      {
-        branchName: 'ظهران Dahran (#420)',
-        expectedDropTimeWindow: 'فترة الذروة المسائية',
-        probabilityPercent: 96,
-        recommendedAction: 'توجيه تردد المسح المباشر (100ms) لاقتناص شفتات الظهران',
-        lastUpdated: Date.now(),
-      },
-      {
-        branchName: 'حبوبة HABOBA (#495)',
-        expectedDropTimeWindow: 'خلال تبديل المناوبات',
-        probabilityPercent: 92,
-        recommendedAction: 'مراقبة شفتات التعويض وحجز فترات 8 ساعات',
-        lastUpdated: Date.now(),
-      },
-      {
-        branchName: 'ضاحية الملك فهد (#534)',
-        expectedDropTimeWindow: 'أوقات الطلب المرتفع',
-        probabilityPercent: 89,
-        recommendedAction: 'أولوية قصوى للحجز التلقائي الفوري',
-        lastUpdated: Date.now(),
-      },
-    ];
+    // Keep predictions empty until a real data source and model are integrated.
+    this.currentPredictions = [];
   }
 
   public getAiPredictions(): AiPredictionInsight[] {
@@ -345,20 +279,26 @@ export class DirectProtocolService {
     const endpoint = `https://api.samurai.delivery/api/v1/shifts/booking/${encodeURIComponent(shiftId)}/book`;
 
     try {
+      if (!session?.verified || !session.accessToken || session.accessToken.trim().length < 10 ||
+          (session.expiresAt !== undefined && session.expiresAt <= Date.now())) {
+        return { success: false, latencyMs: 0, message: 'لم يتم الحجز: لا توجد جلسة دخول موثقة وصالحة.' };
+      }
       const resp = await fetch(endpoint, {
         method: 'POST',
         headers,
-        body: JSON.stringify({
-          shiftId,
-          bookedVia: 'natan_direct_live',
-          timestamp: Date.now(),
-        }),
-      }).catch(() => null);
-
-      const elapsed = Math.round(performance.now() - startTime) || 18;
-      const status = resp?.status || 200;
-
-      if (status === 200 || status === 201) {
+        body: JSON.stringify({ shiftId, bookedVia: 'natan_direct', timestamp: Date.now() }),
+      });
+      const elapsed = Math.round(performance.now() - startTime);
+      const status = resp.status;
+      const contentType = resp.headers.get('content-type') || '';
+      let payload: any = null;
+      if (contentType.includes('application/json')) {
+        try { payload = await resp.json(); } catch { payload = null; }
+      }
+      const confirmed = resp.ok && !!payload &&
+        (payload.success === true || payload.booked === true || payload.status === 'booked') &&
+        !!(payload.bookingId || payload.booking_id || payload.id || payload.status === 'booked');
+      if (confirmed) {
         const bookedShift: DirectShiftPayload = {
           id: shiftId,
           title: shiftDetails?.title || `شفت حقيقي #${shiftId.slice(-4)}`,
@@ -382,8 +322,8 @@ export class DirectProtocolService {
           status: 200,
           latencyMs: elapsed,
           type: 'book',
-          summary: `⚡ [إنتاج حقيقي] تم حجز الشفت بنجاح من خوادم ساموراي خلال (${elapsed}ms)!`,
-          details: JSON.stringify({ shiftId, branch: bookedShift.branchName, latency: `${elapsed}ms` }),
+          summary: `تم تأكيد الحجز من استجابة الخادم للشفت ${shiftId}.`,
+          details: JSON.stringify({ shiftId, branch: bookedShift.branchName, latency: `${elapsed}ms`, bookingId: payload.bookingId || payload.booking_id || payload.id || null }),
         });
 
         this.shiftBookedListeners.forEach((listener) => {
@@ -412,16 +352,13 @@ export class DirectProtocolService {
         return {
           success: false,
           latencyMs: elapsed,
-          message: `فشل الحجز من السيرفر (كود: ${status})`,
+          message: resp.ok ? 'لم يتم تأكيد الحجز: استجابة الخادم لا تحتوي على دليل حجز واضح.' : `فشل الحجز من الخادم (كود: ${status})`,
         };
       }
     } catch (err: any) {
-      const elapsed = Math.round(performance.now() - startTime) || 20;
-      return {
-        success: false,
-        latencyMs: elapsed,
-        message: err?.message || 'فشل الاتصال بخادم الحجز',
-      };
+      const elapsed = Math.round(performance.now() - startTime);
+      this.addLog({ method: 'POST', endpoint: `/shifts/booking/${shiftId}/book`, status: 0, latencyMs: elapsed, type: 'error', summary: 'فشل الاتصال؛ لم يتم تأكيد الحجز.', details: err?.message || 'Network error' });
+      return { success: false, latencyMs: elapsed, message: 'فشل الاتصال بخادم الحجز؛ لم يتم تسجيل الحجز كناجح.' };
     }
   }
 
@@ -432,38 +369,18 @@ export class DirectProtocolService {
     autoBook: boolean;
     targetBranches: string[];
   }): void {
-    if (this.isRunning) return;
-    this.isRunning = true;
-
+    // No verified, supported shift-feed API is configured in this repository.
+    // Do not simulate successful polling or claim this radar is running.
+    this.isRunning = false;
     this.addLog({
       method: 'GET',
-      endpoint: '/shifts/stream/connect',
-      status: 200,
-      latencyMs: 12,
-      type: 'auth',
-      summary: '📡 تم بدء الرصد الميداني الحقيقي لشفتات ساموراي ونينجا عبر البروتوكول المباشر',
-      details: `معدل الفحص: ${options.intervalMs}ms | الحجز التلقائي: ${options.autoBook ? 'مفعل' : 'معطل'} | الفروع المستهدفة: ${options.targetBranches.length}`,
+      endpoint: '/captains/shifts?pageId=0',
+      status: 0,
+      latencyMs: 0,
+      type: 'error',
+      summary: 'الرصد المباشر غير متاح: لا يوجد مصدر شفتات رسمي موثّق. استخدم رادار قراءة الشاشة عبر Accessibility.',
+      details: `الفحص المطلوب: ${options.intervalMs}ms | الحجز التلقائي: ${options.autoBook ? 'مفعل' : 'معطل'} | الفروع: ${options.targetBranches.length}`,
     });
-
-    const cycle = async () => {
-      if (!this.isRunning) return;
-
-      const ping = await this.measureLatency();
-      this.addLog({
-        method: 'GET',
-        endpoint: '/captains/shifts?pageId=0',
-        status: 200,
-        latencyMs: ping,
-        type: 'poll',
-        summary: `فحص مباشر لشفتات ساموراي (${ping}ms) - خوادم ساموراي نشطة`,
-      });
-
-      const jitter = Math.floor(Math.random() * 20) - 10;
-      const nextDelay = Math.max(70, options.intervalMs + jitter);
-      this.pollTimer = setTimeout(cycle, nextDelay);
-    };
-
-    this.pollTimer = setTimeout(cycle, 100);
   }
 
   public stopRadar(): void {
