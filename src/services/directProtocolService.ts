@@ -15,6 +15,7 @@ export interface DirectProtocolSession {
   appVersion?: string;
   expiresAt?: number;
   lastConnectedAt?: number;
+  verified?: boolean;
 }
 
 export interface DirectProtocolLog {
@@ -126,7 +127,13 @@ export class DirectProtocolService {
 
   public hasValidToken(): boolean {
     const session = this.getSession();
-    return !!(session && session.accessToken && session.accessToken.trim().length > 10);
+    return !!(
+      session &&
+      session.verified === true &&
+      session.accessToken &&
+      session.accessToken.trim().length > 10 &&
+      (!session.expiresAt || session.expiresAt > Date.now())
+    );
   }
 
   // --- Phone & OTP Login Flow ---
@@ -272,8 +279,9 @@ export class DirectProtocolService {
     const endpoint = `https://api.samurai.delivery/api/v1/shifts/booking/${encodeURIComponent(shiftId)}/book`;
 
     try {
-      if (!session?.accessToken || session.accessToken.trim().length < 10) {
-        return { success: false, latencyMs: 0, message: 'لم يتم الحجز: لا توجد جلسة دخول موثقة.' };
+      if (!session?.verified || !session.accessToken || session.accessToken.trim().length < 10 ||
+          (session.expiresAt !== undefined && session.expiresAt <= Date.now())) {
+        return { success: false, latencyMs: 0, message: 'لم يتم الحجز: لا توجد جلسة دخول موثقة وصالحة.' };
       }
       const resp = await fetch(endpoint, {
         method: 'POST',
